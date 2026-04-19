@@ -17,15 +17,15 @@ Minimal extension to verify whether Chrome's `chrome.sidePanel` API works in Bra
 
 Click the pinned toolbar icon. Then check:
 
-| # | Check | Pass |
-|---|---|---|
-| 1 | Brave does not crash on install or on click | [ ] |
-| 2 | Panel opens on the right side of the window | [ ] |
-| 3 | Panel stays open (title + "Panel opened at" visible) after 5 seconds | [ ] |
-| 4 | `Tick:` counter keeps incrementing (proves JS keeps running) | [ ] |
-| 5 | "Click me" button registers clicks in the log | [ ] |
-| 6 | Panel survives switching tabs and returning | [ ] |
-| 7 | Panel reopens reliably after closing it | [ ] |
+| # | Check                                                                | Pass |
+|---|----------------------------------------------------------------------|------|
+| 1 | Brave does not crash on install or on click                          | [x]  |
+| 2 | Panel opens on the right side of the window                          | [x]  |
+| 3 | Panel stays open (title + "Panel opened at" visible) after 5 seconds | [x]  |
+| 4 | `Tick:` counter keeps incrementing (proves JS keeps running)         | [x]  |
+| 5 | "Click me" button registers clicks in the log                        | [x]  |
+| 6 | Panel survives switching tabs and returning                          | [x]  |
+| 7 | Panel reopens reliably after closing it                              | [ ]  |
 
 If all seven pass, Brave's `chrome.sidePanel` support is good enough for the Gmail sorter. If any fail, fall back to a content script scoped to the Gmail inbox list view.
 
