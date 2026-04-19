@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "Side Panel Test",
+  "version": "0.1.0",
+  "description": "Minimal test of chrome.sidePanel API in Brave.",
+  "permissions": ["sidePanel"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_title": "Open side panel" },
+  "side_panel": { "default_path": "sidepanel.html" }
+}
