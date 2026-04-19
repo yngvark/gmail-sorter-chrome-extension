@@ -141,13 +141,13 @@ function fadeOutThen(element, callback) {
 function applyAction(emailId, action) {
   const sidePanelRow = document.querySelector(`.suggestion-row[data-email-id="${emailId}"]`);
   const gmailRow = document.querySelector(`.email-row[data-email-id="${emailId}"]`);
-  const willRemoveGmailRow = action === "Archive";
+  const willRemoveGmailRow = action === "Archive" || action === "Star";
 
   const doMutate = () => {
     const email = state.emails.find(e => e.id === emailId);
     if (!email) return;
     switch (action) {
-      case "Star":              email.starred = true; break;
+      case "Star":              email.starred = true; email.archived = true; break;
       case "Archive":           email.archived = true; break;
       case "Mark read":         email.read = true; break;
       case "Label: Follow-up":
