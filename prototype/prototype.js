@@ -125,36 +125,54 @@ function render() {
   renderSidePanel();
 }
 
+// ---------- Animations ----------
+
+const FADE_DURATION_MS = 200;
+
+function fadeOutThen(element, callback) {
+  element.style.opacity = "0";
+  element.style.pointerEvents = "none";
+  setTimeout(callback, FADE_DURATION_MS);
+}
+
 // ---------- Action application ----------
 
 function applyAction(emailId, action) {
-  const email = state.emails.find(e => e.id === emailId);
-  if (!email) return;
+  const sidePanelRow = document.querySelector(`.suggestion-row[data-email-id="${emailId}"]`);
+  const gmailRow = document.querySelector(`.email-row[data-email-id="${emailId}"]`);
+  const willRemoveGmailRow = action === "Archive";
 
-  switch (action) {
-    case "Star":
-      email.starred = true;
-      break;
-    case "Archive":
-      email.archived = true;
-      break;
-    case "Mark read":
-      email.read = true;
-      break;
-    case "Label: Follow-up":
-      if (!email.labels.includes("Follow-up")) email.labels.push("Follow-up");
-      break;
-    case "Leave alone":
-      // no-op
-      break;
+  const doMutate = () => {
+    const email = state.emails.find(e => e.id === emailId);
+    if (!email) return;
+    switch (action) {
+      case "Star":              email.starred = true; break;
+      case "Archive":           email.archived = true; break;
+      case "Mark read":         email.read = true; break;
+      case "Label: Follow-up":
+        if (!email.labels.includes("Follow-up")) email.labels.push("Follow-up");
+        break;
+      case "Leave alone":       break;
+    }
+    state.suggestions = state.suggestions.filter(s => s.emailId !== emailId);
+    render();
+  };
+
+  const elementsToFade = [sidePanelRow, willRemoveGmailRow ? gmailRow : null].filter(Boolean);
+  if (elementsToFade.length === 0) {
+    doMutate();
+    return;
   }
-
-  // Drop this email's suggestion.
-  state.suggestions = state.suggestions.filter(s => s.emailId !== emailId);
-  render();
+  let pending = elementsToFade.length;
+  for (const el of elementsToFade) {
+    fadeOutThen(el, () => {
+      pending--;
+      if (pending === 0) doMutate();
+    });
+  }
 }
 
-const APPLY_ALL_STAGGER_MS = 150;
+const APPLY_ALL_STAGGER_MS = 250;
 
 function applyAll() {
   const queue = [...state.suggestions];
