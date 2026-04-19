@@ -1,6 +1,6 @@
 # Gmail Sorter Chrome Extension — Plan
 
-A Chrome extension that sorts the Gmail inbox by asking a **locally-running Ollama model** to classify each email, then applying labels / archive / star actions via the Gmail API. Privacy: email content never leaves the user's machine.
+A Chrome/Brave extension that sorts the Gmail inbox by asking a **locally-running Ollama model** to classify each email, then applying labels / archive / star actions via the Gmail API. Privacy: email content never leaves the user's machine. Every action is triggered by the user — nothing runs automatically.
 
 ## Background research
 
@@ -47,12 +47,30 @@ Everything in Gmail is modeled as labels. `users.messages.modify` takes `addLabe
 
 **Superstars (colored stars, icon stars)**: Gmail's colored stars have internal label IDs such as `^ss_sr` (red), `^ss_sb` (blue), `^ss_cg` (green check) ([unofficial reference](https://codematcher.com/questions/unable-to-search-for-specific-coloured-star-superstars-using-advanced-search-i)). Querying with `q=has:red-star` works. Whether `addLabelIds: ["^ss_sr"]` works via `messages.modify` is **not documented by Google** and must be verified early. If it doesn't work, fall back to custom user labels with colors.
 
+### Side Panel API in Brave — verified
+
+Tested with `sidepanel-test/` against Brave. All seven checks pass: no crashes, panel opens on toolbar-icon click, stays open, runs JS continuously, survives tab switching, reopens reliably. Historical Brave bugs ([#32132](https://github.com/brave/brave-browser/issues/32132), [#31328](https://github.com/brave/brave-browser/issues/31328), [#31334](https://github.com/brave/brave-browser/issues/31334)) do not reproduce. In-memory state is lost when the panel is closed — this is standard Chrome behavior, not a Brave bug, and is handled by persisting state to `chrome.storage`.
+
 ## Architecture
 
-- **Manifest v3 Chrome extension.** All logic in the service worker (background). No content script. Do not scrape the Gmail DOM — fragile.
-- **Auth**: `chrome.identity.getAuthToken`, scope `https://www.googleapis.com/auth/gmail.modify` (read, label, archive, trash; cannot permanently delete, cannot send). If auto-reply is later added, also request `gmail.send`. Avoid the full-access `https://mail.google.com/` scope.
+- **Manifest v3 extension. No content script.** No DOM parsing. All Gmail interaction goes through the Gmail REST API.
+- **UI surface**: Chrome's [Side Panel API](https://developer.chrome.com/docs/extensions/reference/api/sidePanel) (`chrome.sidePanel`). User clicks the toolbar icon; panel opens docked to the right, alongside Gmail.
+- **Service worker** (background): handles OAuth, Gmail API calls, Ollama calls. The panel is a thin view; the worker does the work.
+- **Auth**: `chrome.identity.getAuthToken`, scope `https://www.googleapis.com/auth/gmail.modify` (read, label, archive, trash; cannot permanently delete, cannot send). Avoid the full-access `https://mail.google.com/` scope.
 - **LLM**: direct `fetch` to local Ollama. No LangChain.
-- **Trigger**: `chrome.alarms` every N minutes → poll `users.messages.list?q=in:inbox is:unread -label:nano-processed`. The `-label:nano-processed` guard prevents re-classifying. (Push via Pub/Sub requires a public endpoint — skip.)
+- **Nothing runs automatically.** No `chrome.alarms`, no polling, no push. Every classification and every Gmail mutation is user-triggered.
+
+### Persistence model
+
+The side panel page is torn down when the user closes it and re-mounted on open. To survive close/reopen, state lives outside the panel:
+
+| State | Storage | Lifetime |
+|---|---|---|
+| Classifications (message ID → suggested action) | `chrome.storage.local` | Persists across browser restart |
+| "Classifying in progress" / counters | `chrome.storage.session` | Cleared on browser close |
+| Settings (Ollama URL, model, prompt, category mapping) | `chrome.storage.sync` | Synced across user's Chrome |
+
+On mount, the panel reads storage and renders. The service worker writes to storage during classification/application; the panel subscribes to storage changes via `chrome.storage.onChanged` for live updates.
 
 ### Manifest sketch
 
@@ -62,7 +80,7 @@ Everything in Gmail is modeled as labels. `users.messages.modify` takes `addLabe
   "name": "Gmail Sorter",
   "version": "0.1.0",
   "background": { "service_worker": "background.js", "type": "module" },
-  "permissions": ["identity", "storage", "alarms"],
+  "permissions": ["identity", "storage", "sidePanel"],
   "host_permissions": [
     "http://localhost:11434/*",
     "https://gmail.googleapis.com/*"
@@ -71,60 +89,106 @@ Everything in Gmail is modeled as labels. `users.messages.modify` takes `addLabe
     "client_id": "<from Google Cloud Console>.apps.googleusercontent.com",
     "scopes": ["https://www.googleapis.com/auth/gmail.modify"]
   },
-  "action": { "default_popup": "popup.html" },
+  "action": { "default_title": "Open Gmail Sorter" },
+  "side_panel": { "default_path": "sidepanel.html" },
   "options_page": "options.html"
 }
 ```
 
-## Processing loop
-
-For each new message:
-
-1. `users.messages.get?format=metadata` (headers only — cheap).
-2. If needed, `format=full` to get body. Decode base64url body parts.
-3. Build prompt: system message with category taxonomy; user message with `From`, `Subject`, body. Request `format: "json"` from Ollama.
-4. POST to `http://localhost:11434/api/chat`.
-5. Parse the classification, validate against allowed categories, map to Gmail label operations.
-6. `users.messages.modify` with `addLabelIds` / `removeLabelIds`.
-7. Add a `nano-processed` custom label so the message is not re-classified.
+The service worker calls `chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })` so clicking the toolbar icon opens the panel.
 
 ## UX
 
-- **Popup**: "Processed N emails in last run. M pending." Run-now button. Link to options.
-- **Options page**:
-  - Ollama URL + model name.
-  - **Prominent reminder about `OLLAMA_ORIGINS=chrome-extension://*`** with copy button.
-  - Category taxonomy: category name → Gmail action (add/remove label IDs).
-  - Classification prompt (editable, with default).
-  - Dry-run toggle (log what it would do; do not modify).
-  - Polling interval.
-- **Dry-run mode**: logs decisions to `chrome.storage.local` and shows them in the popup for review before enabling writes.
+### Side panel
+
+```
+┌──────────────────────┐
+│ Gmail Sorter         │
+│                      │
+│ [Classify inbox]     │  ← triggers LLM classification
+│                      │
+│ ─ Suggestions ─      │
+│                      │
+│ Mom — Dinner?        │
+│   [Star]             │  ← button text = suggested action
+│                      │
+│ Stripe — Receipt     │
+│   [Archive]          │
+│                      │
+│ LinkedIn — Jobs...   │
+│   [Archive]          │
+│                      │
+│ [Apply all]          │  ← applies all pending suggestions
+│                      │
+│ ⚙ Settings           │
+└──────────────────────┘
+```
+
+- **`Classify inbox`** button: calls Gmail API to list inbox messages, then runs each through Ollama. Suggestions written to `chrome.storage.local`. Panel renders them as they arrive.
+- **Per-email row**: From + subject + a single button whose label is the suggested action (`Star`, `Archive`, `Mark read`, `Label: Follow-up`, etc.). Clicking the button applies that action via the Gmail API. Row disappears (or shows ✓) on success.
+- **`Apply all`** button: applies every pending suggestion in one batch. Progress indicator; failures listed.
+- No popups. No notifications. No automatic work.
+
+### Options page
+
+- Ollama URL + model name.
+- **Prominent reminder about `OLLAMA_ORIGINS=chrome-extension://*`** with a copy button and a link to the Ollama FAQ.
+- Category taxonomy: category name → Gmail action (add/remove label IDs).
+- Classification prompt (editable, with default).
+
+## Processing flow
+
+User clicks `Classify inbox`:
+
+1. Service worker gets OAuth token via `chrome.identity.getAuthToken`.
+2. `users.messages.list?q=in:inbox&maxResults=50` → list of message IDs.
+3. For each message ID (with small concurrency, e.g. 2–4 at a time):
+   a. `users.messages.get?format=metadata` for headers.
+   b. If needed, `format=full` for body; decode base64url body parts.
+   c. Build prompt (system: taxonomy; user: From + Subject + body).
+   d. POST to `http://localhost:11434/api/chat` with `format: "json"`.
+   e. Parse classification, validate against taxonomy.
+   f. Write `{ messageId, from, subject, action, labelIdsToAdd, labelIdsToRemove }` to `chrome.storage.local`.
+4. Panel re-renders as entries arrive.
+
+User clicks a per-email button or `Apply all`:
+
+1. Service worker calls `users.messages.modify` (or `trash`) with the stored label diff.
+2. On success, remove entry from `chrome.storage.local` (or mark applied).
+3. Panel updates.
 
 ## Risks and mitigations
 
 | Risk | Mitigation |
 |---|---|
-| Local Ollama latency on 50 emails | Small batches; allow batching multiple emails per prompt; configurable concurrency |
+| Local Ollama latency on 50 emails | Small concurrency; show progress; user can stop |
 | Hallucinated / invalid categories | Ollama `format: "json"` + schema validation; fall back to "leave alone" on parse failure |
-| Gmail API rate limits | Batch `messages.modify` where possible; exponential backoff on 429 |
+| Gmail API rate limits | Small concurrency; exponential backoff on 429 |
 | Superstar label IDs may not be writable | Verify early; fall back to custom colored user labels |
-| User mis-launches Ollama without `OLLAMA_ORIGINS` | Detect CORS failure and show actionable error in popup |
-| Destructive misclassification | Default to safe actions (label only); require opt-in for archive / trash; dry-run first |
+| CORS failure when `OLLAMA_ORIGINS` missing | Detect in service worker and surface actionable error in panel |
+| Destructive misclassification | Default taxonomy to safe actions (label only); user opts in to archive / trash; nothing applied until user clicks |
+| Panel state lost on close | State lives in `chrome.storage`; panel is a pure view |
 
 ## Build order
 
-1. Skeleton extension. OAuth working. Log access token.
-2. List inbox. Print subjects to console.
-3. Call Ollama with a hardcoded prompt. Log classification.
-4. Wire classification → `messages.modify` with a single action (archive).
-5. Expand taxonomy. Options UI. `nano-processed` dedup label.
-6. Verify whether superstar label IDs are writable; decide on fallback.
-7. Polish: dry-run mode, popup stats, error handling, CORS-failure detection.
+1. Skeleton extension. Toolbar icon opens side panel. Static panel content.
+2. OAuth working. Log access token from service worker.
+3. Gmail API: list inbox, render From + Subject in the panel.
+4. Ollama call: classify one email end-to-end, log result.
+5. Wire classification → storage → panel renders suggested action as button.
+6. Single-action apply button works (e.g. Archive).
+7. Apply-all button. Concurrency. Progress feedback.
+8. Options page. Settings in `chrome.storage.sync`.
+9. Verify whether superstar label IDs are writable; decide on fallback.
+10. Polish: CORS-failure detection, error toasts in panel, dry-run mode.
 
 ## Out of scope (v1)
 
+- Content-script-based inline buttons in the Gmail DOM.
 - Gmail Pub/Sub push notifications.
 - Auto-reply / sending mail.
+- Automatic / scheduled classification.
 - Multiple Gmail accounts.
 - Non-Ollama LLM providers.
-- Mobile / Gmail app (extension runs in desktop Chrome only).
+- Mobile / Gmail app (extension runs in desktop Chrome/Brave only).
+- Gmail views other than the inbox list.
