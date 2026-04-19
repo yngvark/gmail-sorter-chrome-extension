@@ -105,7 +105,7 @@ function renderSidePanel() {
     actionBtn.type = "button";
     actionBtn.className = "action-btn";
     actionBtn.textContent = sugg.action;
-    // Wiring of click handler added in Task 4.
+    actionBtn.addEventListener("click", () => applyAction(sugg.emailId, sugg.action));
 
     li.append(meta, actionBtn);
     list.append(li);
@@ -119,6 +119,35 @@ function renderSidePanel() {
 function render() {
   renderEmailList();
   renderSidePanel();
+}
+
+// ---------- Action application ----------
+
+function applyAction(emailId, action) {
+  const email = state.emails.find(e => e.id === emailId);
+  if (!email) return;
+
+  switch (action) {
+    case "Star":
+      email.starred = true;
+      break;
+    case "Archive":
+      email.archived = true;
+      break;
+    case "Mark read":
+      email.read = true;
+      break;
+    case "Label: Follow-up":
+      if (!email.labels.includes("Follow-up")) email.labels.push("Follow-up");
+      break;
+    case "Leave alone":
+      // no-op
+      break;
+  }
+
+  // Drop this email's suggestion.
+  state.suggestions = state.suggestions.filter(s => s.emailId !== emailId);
+  render();
 }
 
 // ---------- Classification (simulated) ----------
