@@ -69,14 +69,109 @@ function renderEmailList() {
 }
 
 function renderSidePanel() {
-  // Suggestions, Apply all, empty state — filled in later tasks.
-  // Keep stub so render() is callable now.
+  const btn = document.getElementById("classify-btn");
+  const list = document.getElementById("suggestion-list");
+  const applyAll = document.getElementById("apply-all-btn");
+  const empty = document.getElementById("empty-state");
+
+  const total = state.emails.filter(e => !e.archived).length;
+  if (state.classifying) {
+    btn.disabled = true;
+    btn.textContent = `Classifying\u2026 ${state.classifyProgress} / ${total}`;
+  } else {
+    btn.disabled = false;
+    btn.textContent = "Classify inbox";
+  }
+
+  list.innerHTML = "";
+  for (const sugg of state.suggestions) {
+    const email = state.emails.find(e => e.id === sugg.emailId);
+    if (!email) continue;
+    const li = document.createElement("li");
+    li.className = "suggestion-row";
+    li.dataset.emailId = email.id;
+
+    const meta = document.createElement("div");
+    meta.className = "suggestion-meta";
+    const from = document.createElement("div");
+    from.className = "from";
+    from.textContent = email.from;
+    const subj = document.createElement("div");
+    subj.className = "subject";
+    subj.textContent = email.subject;
+    meta.append(from, subj);
+
+    const actionBtn = document.createElement("button");
+    actionBtn.type = "button";
+    actionBtn.className = "action-btn";
+    actionBtn.textContent = sugg.action;
+    // Wiring of click handler added in Task 4.
+
+    li.append(meta, actionBtn);
+    list.append(li);
+  }
+
+  const hasSuggestions = state.suggestions.length > 0;
+  applyAll.hidden = !hasSuggestions;
+  empty.hidden = state.classifying || hasSuggestions;
 }
 
 function render() {
   renderEmailList();
   renderSidePanel();
 }
+
+// ---------- Classification (simulated) ----------
+
+const CLASSIFY_MIN_MS = 250;
+const CLASSIFY_MAX_MS = 500;
+
+function randomDelay() {
+  return CLASSIFY_MIN_MS + Math.random() * (CLASSIFY_MAX_MS - CLASSIFY_MIN_MS);
+}
+
+function emailsToClassify() {
+  // Emails still in the inbox that have no pending suggestion and are unhandled.
+  // "Unhandled" = not archived, not starred, not already read, not already labelled.
+  // Leave-alone emails never acquire any of those flags, so they remain eligible
+  // on every re-run (which is the desired behaviour — their counter still ticks).
+  return state.emails.filter(e =>
+    !e.archived &&
+    !e.starred &&
+    !e.read &&
+    !e.labels.includes("Follow-up") &&
+    !state.suggestions.some(s => s.emailId === e.id)
+  );
+}
+
+function startClassify() {
+  if (state.classifying) return;
+  const queue = emailsToClassify();
+  if (queue.length === 0) return;
+
+  state.classifying = true;
+  state.classifyProgress = 0;
+  render();
+
+  let i = 0;
+  function next() {
+    if (i >= queue.length) {
+      state.classifying = false;
+      render();
+      return;
+    }
+    const email = queue[i++];
+    state.classifyProgress = i;
+    if (email.preBakedAction !== "Leave alone") {
+      state.suggestions.push({ emailId: email.id, action: email.preBakedAction });
+    }
+    render();
+    setTimeout(next, randomDelay());
+  }
+  setTimeout(next, randomDelay());
+}
+
+document.getElementById("classify-btn").addEventListener("click", startClassify);
 
 // ---------- Boot ----------
 

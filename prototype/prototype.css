@@ -101,3 +101,38 @@ button:disabled {
   background: #e8f0ff;
   color: #1a4a9c;
 }
+
+.suggestion-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #ececec;
+  transition: opacity 200ms;
+}
+
+.suggestion-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.suggestion-meta .from {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.suggestion-meta .subject {
+  font-size: 12px;
+  color: #666;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#apply-all-btn {
+  margin-top: 16px;
+  width: 100%;
+}
