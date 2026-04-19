@@ -1,0 +1,60 @@
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  color: #222;
+  background: #fafafa;
+}
+
+.layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.gmail-pane {
+  flex: 1;
+  padding: 16px 24px;
+  background: #fff;
+}
+
+.side-panel {
+  width: 360px;
+  flex-shrink: 0;
+  padding: 16px;
+  border-left: 1px solid #e0e0e0;
+  background: #fafafa;
+}
+
+h1 {
+  font-size: 16px;
+  margin: 0 0 16px;
+}
+
+button {
+  padding: 8px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  background: #fff;
+  border: 1px solid #c0c0c0;
+  border-radius: 4px;
+}
+
+button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.email-list,
+.suggestion-list {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0 0;
+}
+
+.empty-state {
+  color: #666;
+  font-size: 13px;
+  margin-top: 16px;
+}

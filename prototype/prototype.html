@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Gmail Sorter — UI Prototype</title>
+    <link rel="stylesheet" href="prototype.css" />
+  </head>
+  <body>
+    <main class="layout">
+      <section class="gmail-pane" aria-label="Inbox">
+        <h1>Inbox</h1>
+        <ul class="email-list" id="email-list"></ul>
+      </section>
+
+      <aside class="side-panel" aria-label="Gmail Sorter">
+        <h1>Gmail Sorter</h1>
+        <button id="classify-btn" type="button">Classify inbox</button>
+        <ul class="suggestion-list" id="suggestion-list"></ul>
+        <button id="apply-all-btn" type="button" hidden>Apply all</button>
+        <p class="empty-state" id="empty-state" hidden>
+          No suggestions. Click <strong>Classify inbox</strong> to re-run.
+        </p>
+      </aside>
+    </main>
+
+    <script src="prototype.js"></script>
+  </body>
+</html>
