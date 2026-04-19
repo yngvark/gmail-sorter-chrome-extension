@@ -112,6 +112,7 @@ function renderSidePanel() {
   }
 
   const hasSuggestions = state.suggestions.length > 0;
+  if (!applyAll.disabled) applyAll.textContent = "Apply all";
   applyAll.hidden = !hasSuggestions;
   empty.hidden = state.classifying || hasSuggestions;
 }
@@ -149,6 +150,31 @@ function applyAction(emailId, action) {
   state.suggestions = state.suggestions.filter(s => s.emailId !== emailId);
   render();
 }
+
+const APPLY_ALL_STAGGER_MS = 150;
+
+function applyAll() {
+  const queue = [...state.suggestions];
+  if (queue.length === 0) return;
+
+  const applyAllBtn = document.getElementById("apply-all-btn");
+  applyAllBtn.disabled = true;
+
+  let i = 0;
+  function next() {
+    if (i >= queue.length) {
+      applyAllBtn.disabled = false;
+      return;
+    }
+    const sugg = queue[i++];
+    applyAllBtn.textContent = `Applying\u2026 ${i} / ${queue.length}`;
+    applyAction(sugg.emailId, sugg.action);
+    setTimeout(next, APPLY_ALL_STAGGER_MS);
+  }
+  next();
+}
+
+document.getElementById("apply-all-btn").addEventListener("click", applyAll);
 
 // ---------- Classification (simulated) ----------
 
