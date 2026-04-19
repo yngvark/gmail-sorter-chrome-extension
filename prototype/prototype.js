@@ -29,6 +29,7 @@ const state = {
   suggestions: [],    // [{ emailId, action }]
   classifying: false,
   classifyProgress: 0,
+  classifyTotal: 0,
 };
 
 // ---------- Rendering ----------
@@ -75,7 +76,7 @@ function renderSidePanel() {
   const empty = document.getElementById("empty-state");
 
   const total = state.classifying
-    ? (state.classifyTotal ?? 0)
+    ? state.classifyTotal
     : emailsToClassify().length;
   if (state.classifying) {
     btn.disabled = true;
@@ -204,8 +205,8 @@ function emailsToClassify() {
 function startClassify() {
   if (state.classifying) return;
   const queue = emailsToClassify();
-  state.classifyTotal = queue.length;
   if (queue.length === 0) return;
+  state.classifyTotal = queue.length;
 
   state.classifying = true;
   state.classifyProgress = 0;
