@@ -74,7 +74,9 @@ function renderSidePanel() {
   const applyAll = document.getElementById("apply-all-btn");
   const empty = document.getElementById("empty-state");
 
-  const total = state.emails.filter(e => !e.archived).length;
+  const total = state.classifying
+    ? (state.classifyTotal ?? 0)
+    : emailsToClassify().length;
   if (state.classifying) {
     btn.disabled = true;
     btn.textContent = `Classifying\u2026 ${state.classifyProgress} / ${total}`;
@@ -202,6 +204,7 @@ function emailsToClassify() {
 function startClassify() {
   if (state.classifying) return;
   const queue = emailsToClassify();
+  state.classifyTotal = queue.length;
   if (queue.length === 0) return;
 
   state.classifying = true;
@@ -212,6 +215,7 @@ function startClassify() {
   function next() {
     if (i >= queue.length) {
       state.classifying = false;
+      state.classifyTotal = 0;
       render();
       return;
     }
