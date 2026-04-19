@@ -8,8 +8,8 @@ const MOCK_EMAILS = [
   { id: "e3",  from: "Amazon",              subject: "Your order has shipped",    read: false, preBakedAction: "Archive" },
   { id: "e4",  from: "LinkedIn",            subject: "8 new jobs for you",        read: false, preBakedAction: "Archive" },
   { id: "e5",  from: "Substack",            subject: "This week in AI",           read: false, preBakedAction: "Archive" },
-  { id: "e6",  from: "Alex (colleague)",    subject: "Can you review the PR?",    read: false, preBakedAction: "Label: Follow-up" },
-  { id: "e7",  from: "GitHub",              subject: "[repo] New issue opened",   read: false, preBakedAction: "Label: Follow-up" },
+  { id: "e6",  from: "Alex (colleague)",    subject: "Can you review the PR?",    read: false, preBakedAction: "Move: Follow-up" },
+  { id: "e7",  from: "GitHub",              subject: "[repo] New issue opened",   read: false, preBakedAction: "Move: Follow-up" },
   { id: "e8",  from: "Google",              subject: "Security alert",            read: false, preBakedAction: "Mark read" },
   { id: "e9",  from: "Sam (friend)",        subject: "Coffee next week?",         read: false, preBakedAction: "Star" },
   { id: "e10", from: "Calendar",            subject: "Reminder: 1:1 tomorrow",    read: false, preBakedAction: "Leave alone" },
@@ -141,7 +141,7 @@ function fadeOutThen(element, callback) {
 function applyAction(emailId, action) {
   const sidePanelRow = document.querySelector(`.suggestion-row[data-email-id="${emailId}"]`);
   const gmailRow = document.querySelector(`.email-row[data-email-id="${emailId}"]`);
-  const willRemoveGmailRow = action === "Archive" || action === "Star";
+  const willRemoveGmailRow = action === "Archive" || action === "Star" || action === "Move: Follow-up";
 
   const doMutate = () => {
     const email = state.emails.find(e => e.id === emailId);
@@ -150,8 +150,9 @@ function applyAction(emailId, action) {
       case "Star":              email.starred = true; email.archived = true; break;
       case "Archive":           email.archived = true; break;
       case "Mark read":         email.read = true; break;
-      case "Label: Follow-up":
+      case "Move: Follow-up":
         if (!email.labels.includes("Follow-up")) email.labels.push("Follow-up");
+        email.archived = true;
         break;
       case "Leave alone":       break;
     }
