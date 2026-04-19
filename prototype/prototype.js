@@ -30,6 +30,7 @@ const state = {
   classifying: false,
   classifyProgress: 0,
   classifyTotal: 0,
+  hasClassified: false,
 };
 
 // ---------- Rendering ----------
@@ -117,7 +118,7 @@ function renderSidePanel() {
   const hasSuggestions = state.suggestions.length > 0;
   if (!applyAll.disabled) applyAll.textContent = "Apply all";
   applyAll.hidden = !hasSuggestions;
-  empty.hidden = state.classifying || hasSuggestions;
+  empty.hidden = state.classifying || hasSuggestions || !state.hasClassified;
 }
 
 function render() {
@@ -233,6 +234,7 @@ function startClassify() {
   let i = 0;
   function next() {
     if (i >= queue.length) {
+      state.hasClassified = true;
       state.classifying = false;
       state.classifyTotal = 0;
       render();
