@@ -155,3 +155,91 @@ describe("pipeline.applyOne", () => {
     assert.equal(r.error.kind, "missing");
   });
 });
+
+describe("pipeline.applyAll", () => {
+  let shim;
+  let origFetch;
+
+  beforeEach(async () => {
+    origFetch = globalThis.fetch;
+    shim = installChromeShim();
+    await freshImport();
+  });
+  afterEach(() => { uninstallChromeShim(); globalThis.fetch = origFetch; });
+
+  test("applies every suggestion, updates progress, writes applying:false at end", async () => {
+    shim.storage.sync.set("settings", { dryRun: true });   // skip network
+    shim.storage.local.set("suggestions", {
+      m1: { emailId: "m1", from: "a", subject: "b", action: "Archive" },
+      m2: { emailId: "m2", from: "c", subject: "d", action: "Star" },
+      m3: { emailId: "m3", from: "e", subject: "f", action: "Leave alone" },
+    });
+
+    const progressSamples = [];
+    shim.listeners.push((changes, area) => {
+      if (area === "session" && "applyProgress" in changes) {
+        progressSamples.push(changes.applyProgress.newValue);
+      }
+    });
+
+    const r = await pipeline.applyAll();
+    assert.equal(r.started, true);
+    assert.equal(r.total, 3);
+    assert.equal(r.applied, 3);
+
+    // Final state: applying false, progress == total
+    const final = shim.storage.session.get("applyProgress");
+    assert.equal(final.applying, false);
+    assert.equal(final.progress, 3);
+    assert.equal(final.total, 3);
+
+    // Progress incremented monotonically to 3
+    const numbers = progressSamples.map((s) => s.progress);
+    assert.deepEqual(numbers.at(-1), 3);
+    for (let i = 1; i < numbers.length; i++) assert.ok(numbers[i] >= numbers[i - 1]);
+
+    // Suggestions cleared
+    assert.deepEqual(await store.getSuggestions(), {});
+  });
+
+  test("stops advancing on auth (401) failure", async () => {
+    shim.storage.local.set("suggestions", {
+      m1: { emailId: "m1", from: "a", subject: "b", action: "Archive" },
+      m2: { emailId: "m2", from: "c", subject: "d", action: "Archive" },
+    });
+    shim.storage.local.set("inboxEmails", {
+      m1: { id: "m1" }, m2: { id: "m2" },
+    });
+    globalThis.fetch = async () => new Response(
+      JSON.stringify({ error: { message: "expired" } }),
+      { status: 401 },
+    );
+
+    const r = await pipeline.applyAll();
+    assert.equal(r.applied, 0);
+    assert.equal(r.firstError.kind, "auth");
+
+    // Both suggestions preserved (neither applied)
+    const remaining = await store.getSuggestions();
+    assert.deepEqual(Object.keys(remaining).sort(), ["m1", "m2"]);
+  });
+
+  test("double-invocation while running returns already-running", async () => {
+    shim.storage.sync.set("settings", { dryRun: true });
+    shim.storage.local.set("suggestions", {
+      m1: { emailId: "m1", from: "a", subject: "b", action: "Archive" },
+    });
+
+    const a = pipeline.applyAll();
+    const b = await pipeline.applyAll();
+    assert.equal(b.started, false);
+    assert.equal(b.reason, "already-running");
+    await a;
+  });
+
+  test("empty queue returns total:0 without flipping progress", async () => {
+    const r = await pipeline.applyAll();
+    assert.equal(r.total, 0);
+    assert.equal(r.applied, 0);
+  });
+});

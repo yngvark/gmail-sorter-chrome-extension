@@ -50,6 +50,10 @@ async function handle(msg) {
       const result = await pipeline.applyOne(msg.emailId);
       return result.ok ? reply(result) : replyError(result.error);
     }
+    case MSG.APPLY_ALL: {
+      const result = await pipeline.applyAll();
+      return reply(result);
+    }
     default:
       return replyError({ kind: "unknown-message", message: `Unknown message type: ${msg?.type}` });
   }

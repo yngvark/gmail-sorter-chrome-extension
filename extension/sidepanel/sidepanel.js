@@ -248,9 +248,27 @@ async function applyOne(emailId) {
   }, FADE_DURATION_MS);
 }
 
-function applyAll() {
+async function applyAll() {
   const queue = sortedSuggestions();
   if (queue.length === 0 || state.applyingAll) return;
+
+  if (isExtension) {
+    // Optimistic flip; the worker will then stream progress via storage.
+    state.applyingAll = true;
+    state.applyTotal = queue.length;
+    state.applyProgress = 0;
+    renderApplyAll();
+    try {
+      await chrome.runtime.sendMessage({ type: MSG.APPLY_ALL });
+    } catch (err) {
+      console.error(err);
+      state.applyingAll = false;
+      render();
+    }
+    return;
+  }
+
+  // Placeholder loop for standalone UI iteration.
   state.applyingAll = true;
   state.applyTotal = queue.length;
   state.applyProgress = 0;

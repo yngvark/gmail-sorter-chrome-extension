@@ -245,3 +245,57 @@ async function removeFromInbox(emailId) {
     await store.setInbox(inbox);
   }
 }
+
+// ------------------------ applyAll ------------------------
+
+// Visual pacing: even when the network is fast, 250ms per item gives the
+// user a sense of progress rather than a flash. Matches the prototype's
+// APPLY_ALL_STAGGER_MS so the Chrome extension feels the same.
+const APPLY_ALL_STAGGER_MS = 250;
+
+let applyInFlight = false;
+
+export async function applyAll() {
+  if (applyInFlight) return { started: false, reason: "already-running" };
+  applyInFlight = true;
+
+  try {
+    const suggestions = await store.getSuggestions();
+    const queue = Object.values(suggestions);
+    if (queue.length === 0) return { started: true, total: 0, applied: 0 };
+
+    await store.setApplyProgress({ applying: true, progress: 0, total: queue.length });
+
+    let applied = 0;
+    let firstError = null;
+
+    for (const s of queue) {
+      const t0 = Date.now();
+      const r = await applyOne(s.emailId);
+      if (r.ok) applied++;
+      else if (!firstError) firstError = r.error;
+
+      await store.setApplyProgress({
+        applying: true,
+        progress: applied,
+        total: queue.length,
+      });
+
+      // Stop on auth failure — no point retrying every subsequent item.
+      if (!r.ok && r.error?.kind === "auth") break;
+
+      // Pace to stagger timeline so the UI animation reads as "streaming".
+      const elapsed = Date.now() - t0;
+      if (elapsed < APPLY_ALL_STAGGER_MS) {
+        await sleep(APPLY_ALL_STAGGER_MS - elapsed);
+      }
+    }
+
+    await store.setApplyProgress({ applying: false, progress: applied, total: queue.length });
+    return { started: true, total: queue.length, applied, firstError };
+  } finally {
+    applyInFlight = false;
+  }
+}
+
+function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
