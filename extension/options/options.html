@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Gmail Sorter — Settings</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <div class="paper" aria-hidden="true"></div>
+
+    <main class="page">
+      <header class="masthead">
+        <div class="eyebrow">The Inbox Gazette</div>
+        <h1 class="title">Settings</h1>
+        <div class="rule"></div>
+        <p class="standfirst">
+          Gmail Sorter runs classification <em>locally</em>, through your own
+          Ollama server. Your email never leaves your machine.
+        </p>
+      </header>
+
+      <form id="settings-form" class="form">
+        <!-- CORS CARD: prominent reminder, per Ollama FAQ -->
+        <aside class="cors-card" aria-label="Ollama CORS setup">
+          <div class="cors-card__kicker">Required first-time setup</div>
+          <h2 class="cors-card__title">Allow this extension to reach Ollama</h2>
+          <p class="cors-card__body">
+            Chrome blocks extension requests to <code>localhost:11434</code>
+            unless Ollama is started with a permissive origin. Run Ollama with:
+          </p>
+          <code class="cors-card__code" id="cors-cmd">OLLAMA_ORIGINS=chrome-extension://* ollama serve</code>
+          <div class="cors-card__actions">
+            <button type="button" class="pill-btn" data-copy-target="cors-cmd">Copy</button>
+            <a class="pill-btn pill-btn--ghost"
+               href="https://github.com/ollama/ollama/blob/main/docs/faq.md#how-can-i-allow-additional-web-origins-to-access-ollama"
+               target="_blank" rel="noopener">Ollama FAQ</a>
+          </div>
+        </aside>
+
+        <section class="field-group">
+          <h2 class="field-group__title">Local model</h2>
+
+          <label class="field">
+            <span class="field__label">Ollama base URL</span>
+            <input class="field__input" type="url" id="ollamaBaseUrl" placeholder="http://localhost:11434" />
+            <span class="field__hint">Default port is 11434.</span>
+          </label>
+
+          <label class="field">
+            <span class="field__label">Model name</span>
+            <input class="field__input" type="text" id="ollamaModel" placeholder="NbAiLab/borealis-4b-instruct-preview" />
+            <span class="field__hint">
+              Any model you have pulled. Try
+              <code>ollama list</code> in a terminal to see what's available.
+            </span>
+          </label>
+
+          <label class="field">
+            <span class="field__label">Context window (num_ctx)</span>
+            <input class="field__input field__input--narrow" type="number" id="numCtx" min="2048" max="131072" step="1024" />
+            <span class="field__hint">
+              64 000 is a good default. Larger values reload the model
+              between calls on some setups.
+            </span>
+          </label>
+        </section>
+
+        <section class="field-group">
+          <h2 class="field-group__title">Triage rules</h2>
+          <p class="field-group__lede">
+            Rewrite these in your own words. The classifier reads them on
+            every email and picks one action from: <em>Star</em>,
+            <em>Archive</em>, <em>Mark&nbsp;read</em>, <em>Move:&nbsp;Follow-up</em>,
+            <em>Leave&nbsp;alone</em>.
+          </p>
+          <label class="field">
+            <span class="field__label sr-only">Classification rules</span>
+            <textarea class="field__input field__input--textarea" id="rules" rows="10"></textarea>
+          </label>
+        </section>
+
+        <section class="field-group">
+          <h2 class="field-group__title">Scope</h2>
+
+          <label class="field">
+            <span class="field__label">Maximum inbox size per run</span>
+            <input class="field__input field__input--narrow" type="number" id="maxInbox" min="1" max="500" />
+            <span class="field__hint">The most recent N messages are considered.</span>
+          </label>
+
+          <label class="field field--checkbox">
+            <input type="checkbox" id="dryRun" />
+            <span class="field__label">
+              Dry-run mode
+              <span class="field__hint">
+                Apply buttons clear the suggestion locally but do <em>not</em>
+                touch Gmail. Useful to audit the classifier before trusting it.
+              </span>
+            </span>
+          </label>
+        </section>
+
+        <section class="field-group">
+          <h2 class="field-group__title">Account</h2>
+          <p class="field-group__lede">
+            Gmail Sorter uses Google's built-in OAuth. To switch accounts,
+            revoke access and classify again.
+          </p>
+          <button type="button" class="pill-btn pill-btn--danger" id="signout-btn">Sign out of Google</button>
+          <span class="signout-status" id="signout-status"></span>
+        </section>
+
+        <footer class="form__footer">
+          <button type="button" class="pill-btn pill-btn--ghost" id="reset-btn">Reset to defaults</button>
+          <button type="submit" class="pill-btn pill-btn--primary" id="save-btn">Save changes</button>
+          <span class="save-status" id="save-status"></span>
+        </footer>
+      </form>
+    </main>
+
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

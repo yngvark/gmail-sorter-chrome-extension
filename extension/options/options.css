@@ -1,0 +1,382 @@
+/* ------------------------------------------------------------------
+   Gmail Sorter — options page
+   Shares the aesthetic of the side panel: warm paper, deep ink serif,
+   forest accent, sienna for danger. Layout is a single narrow column
+   centered on the page, echoing an editorial page-set.
+   ------------------------------------------------------------------ */
+
+:root {
+  --paper:       #f3ede1;
+  --paper-2:     #ebe2d0;
+  --ink:         #1c1915;
+  --ink-2:       #4a433a;
+  --ink-3:       #7a7063;
+  --rule:        #c9bfae;
+  --rule-soft:   #e2d9c6;
+  --forest:      #2f4a2e;
+  --forest-2:    #3d5b3a;
+  --sienna:      #a8532a;
+  --sienna-2:    #8e431f;
+  --gold:        #b7903c;
+
+  --serif-display: "Iowan Old Style", "Palatino Linotype", "Palatino",
+                   "URW Palladio L", "Book Antiqua", "Cambria", "Georgia", serif;
+  --serif-body:    "Iowan Old Style", "Charter", "Bitstream Charter",
+                   "Cambria", "Georgia", serif;
+  --sans:          "Söhne", "Inter Tight", "Helvetica Neue", "Arial", sans-serif;
+  --mono:          "JetBrains Mono", "SF Mono", "IBM Plex Mono", ui-monospace,
+                   "Menlo", "Consolas", monospace;
+
+  --radius:       2px;
+  --radius-pill:  999px;
+  --tx-fast:      140ms cubic-bezier(.2,.6,.2,1);
+  --tx-med:       220ms cubic-bezier(.2,.6,.2,1);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif-body);
+  font-size: 16px;
+  line-height: 1.55;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+body { position: relative; overflow-x: hidden; }
+
+.paper {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(1400px 500px at 100% -5%, rgba(183,144,60,0.07), transparent 60%),
+    radial-gradient(1000px 600px at -10% 110%, rgba(47,74,46,0.05), transparent 60%);
+  mix-blend-mode: multiply;
+}
+
+.page {
+  position: relative;
+  z-index: 1;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 48px 28px 80px;
+}
+
+/* ----------------- Masthead ----------------- */
+
+.masthead { text-align: center; margin-bottom: 32px; }
+
+.eyebrow {
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-bottom: 8px;
+}
+
+.title {
+  font-family: var(--serif-display);
+  font-size: 48px;
+  font-weight: 400;
+  font-style: italic;
+  margin: 0;
+  letter-spacing: -0.015em;
+}
+
+.rule {
+  margin: 18px auto 22px;
+  height: 1px;
+  max-width: 360px;
+  background: linear-gradient(90deg, transparent, var(--rule) 15%, var(--rule) 85%, transparent);
+  position: relative;
+}
+.rule::after {
+  content: "❦";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 0 12px;
+  background: var(--paper);
+  color: var(--ink-3);
+  font-size: 13px;
+}
+
+.standfirst {
+  font-family: var(--serif-body);
+  font-style: italic;
+  font-size: 15px;
+  color: var(--ink-2);
+  max-width: 440px;
+  margin: 0 auto;
+}
+
+.standfirst em { color: var(--ink); }
+
+/* ----------------- CORS card ----------------- */
+
+.cors-card {
+  border: 1px solid var(--sienna);
+  padding: 22px 22px 20px;
+  margin-bottom: 40px;
+  background:
+    repeating-linear-gradient(
+      135deg,
+      rgba(168,83,42,0.04) 0 8px,
+      transparent 8px 16px
+    ),
+    var(--paper);
+}
+
+.cors-card__kicker {
+  font-family: var(--sans);
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--sienna);
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.cors-card__title {
+  font-family: var(--serif-display);
+  font-style: italic;
+  font-size: 22px;
+  font-weight: 500;
+  margin: 0 0 10px;
+  color: var(--ink);
+}
+
+.cors-card__body {
+  margin: 0 0 12px;
+  color: var(--ink-2);
+  font-size: 15px;
+}
+
+.cors-card__body code {
+  font-family: var(--mono);
+  font-size: 13px;
+  background: var(--paper-2);
+  padding: 1px 5px;
+}
+
+.cors-card__code {
+  display: block;
+  font-family: var(--mono);
+  font-size: 13px;
+  padding: 12px 14px;
+  background: var(--ink);
+  color: var(--paper);
+  overflow-x: auto;
+  white-space: nowrap;
+  margin-bottom: 14px;
+}
+
+.cors-card__actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ----------------- Field groups ----------------- */
+
+.field-group {
+  margin-bottom: 40px;
+  padding-bottom: 32px;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.field-group:last-of-type { border-bottom: 0; }
+
+.field-group__title {
+  font-family: var(--serif-display);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 20px;
+  margin: 0 0 8px;
+  color: var(--ink);
+}
+
+.field-group__lede {
+  font-size: 14px;
+  color: var(--ink-2);
+  margin: 0 0 18px;
+  max-width: 520px;
+}
+
+.field-group__lede em {
+  font-style: normal;
+  font-family: var(--serif-display);
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.field {
+  display: block;
+  margin-bottom: 20px;
+}
+
+.field__label {
+  display: block;
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  margin-bottom: 6px;
+}
+
+.field__input {
+  display: block;
+  width: 100%;
+  font-family: var(--mono);
+  font-size: 14px;
+  padding: 10px 12px;
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  transition: border-color var(--tx-fast), box-shadow var(--tx-fast);
+}
+
+.field__input:focus {
+  outline: none;
+  border-color: var(--forest);
+  box-shadow: 0 0 0 3px rgba(47,74,46,0.15);
+}
+
+.field__input--narrow { max-width: 180px; }
+
+.field__input--textarea {
+  font-family: var(--serif-body);
+  font-size: 15px;
+  line-height: 1.6;
+  resize: vertical;
+  min-height: 200px;
+}
+
+.field__hint {
+  display: block;
+  font-size: 13px;
+  color: var(--ink-3);
+  margin-top: 6px;
+  font-family: var(--serif-body);
+  font-style: italic;
+}
+.field__hint code {
+  font-family: var(--mono);
+  font-style: normal;
+  font-size: 12px;
+  background: var(--paper-2);
+  padding: 1px 5px;
+}
+
+.field--checkbox {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: start;
+}
+.field--checkbox input {
+  margin-top: 4px;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--forest);
+}
+.field--checkbox .field__label { margin-bottom: 0; }
+/* In the checkbox layout the hint sits *inside* the label span. Un-inherit
+   the label's uppercase styling so the hint reads as normal prose. */
+.field--checkbox .field__hint {
+  text-transform: none;
+  letter-spacing: normal;
+  font-family: var(--serif-body);
+  font-style: italic;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--ink-3);
+  margin-top: 4px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ----------------- Buttons ----------------- */
+
+.pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--ink);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--tx-fast), color var(--tx-fast),
+              transform var(--tx-fast), border-color var(--tx-fast);
+}
+
+.pill-btn:hover { background: var(--ink); color: var(--paper); transform: translateY(-1px); }
+.pill-btn:active { transform: translateY(0); }
+
+.pill-btn--primary {
+  background: var(--forest);
+  color: var(--paper);
+  border-color: var(--forest);
+}
+.pill-btn--primary:hover { background: var(--forest-2); border-color: var(--forest-2); }
+
+.pill-btn--ghost {
+  border-color: var(--rule);
+  color: var(--ink-3);
+}
+.pill-btn--ghost:hover { color: var(--ink); border-color: var(--ink); background: transparent; }
+
+.pill-btn--danger {
+  border-color: var(--sienna);
+  color: var(--sienna);
+}
+.pill-btn--danger:hover { background: var(--sienna); color: var(--paper); border-color: var(--sienna); }
+
+/* ----------------- Form footer ----------------- */
+
+.form__footer {
+  margin-top: 8px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.save-status,
+.signout-status {
+  font-family: var(--serif-body);
+  font-style: italic;
+  color: var(--forest);
+  font-size: 14px;
+  transition: opacity var(--tx-med);
+}
+
+.save-status.--error,
+.signout-status.--error { color: var(--sienna); }
+
+.signout-status { margin-left: 8px; }
