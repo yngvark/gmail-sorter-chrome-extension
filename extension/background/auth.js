@@ -32,9 +32,10 @@ export async function signOut() {
     await removeCachedToken(token);
     // Revoke server-side. Best-effort — ignore errors.
     try {
-      await fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(token)}`, {
+      await fetch("https://oauth2.googleapis.com/revoke", {
         method: "POST",
         headers: { "Content-type": "application/x-www-form-urlencoded" },
+        body: `token=${encodeURIComponent(token)}`,
       });
     } catch { /* ignore */ }
   } catch {
