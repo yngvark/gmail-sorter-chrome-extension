@@ -35,6 +35,14 @@
         </div>
       </section>
 
+      <details class="inbox" id="inbox-details" hidden>
+        <summary class="inbox__summary">
+          <span class="inbox__label">Inbox</span>
+          <span class="inbox__count" id="inbox-count">0</span>
+        </summary>
+        <ul class="inbox__list" id="inbox-list"></ul>
+      </details>
+
       <section class="suggestions" aria-label="Suggestions">
         <div class="section-head">
           <span class="section-head__label">Suggestions</span>
@@ -61,7 +69,8 @@
       <a class="footer__link" id="options-link" href="#">Settings &rsaquo;</a>
       <div class="dev-tools" id="dev-tools" hidden>
         <button class="dev-btn" id="dev-auth-btn" type="button">Test auth</button>
-        <span class="dev-result" id="dev-auth-result"></span>
+        <button class="dev-btn" id="dev-fetch-btn" type="button">Fetch inbox</button>
+        <span class="dev-result" id="dev-result"></span>
       </div>
     </footer>
 

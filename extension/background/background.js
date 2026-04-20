@@ -3,6 +3,7 @@
 
 import { MSG, reply, replyError } from "../lib/messages.js";
 import { getToken, signOut, maskToken } from "./auth.js";
+import * as pipeline from "./pipeline.js";
 
 chrome.sidePanel
   .setPanelBehavior({ openPanelOnActionClick: true })
@@ -32,6 +33,10 @@ async function handle(msg) {
     case MSG.AUTH_SIGN_OUT: {
       await signOut();
       return reply({ signedOut: true });
+    }
+    case MSG.FETCH_INBOX: {
+      const result = await pipeline.fetchInbox({ maxResults: msg.maxResults || 50 });
+      return reply(result);
     }
     default:
       return replyError({ kind: "unknown-message", message: `Unknown message type: ${msg?.type}` });

@@ -7,6 +7,7 @@
 // reads and message-passing to the service worker.
 
 import { MSG } from "../lib/messages.js";
+import { KEYS } from "../background/storage.js";
 
 // ------------------------ Config ------------------------
 
@@ -21,19 +22,39 @@ const PLACEHOLDER_SUGGESTIONS = [
   { emailId: "p5", from: "LinkedIn",         subject: "8 new jobs for you",     action: "Archive" },
 ];
 
+// True when running inside the extension (chrome.runtime is populated). In
+// development the side panel HTML can be loaded plain — we render placeholder
+// data and wire no message passing.
+const isExtension = Boolean(globalThis.chrome?.runtime?.id);
+
 // ------------------------ State ------------------------
 
 const state = {
-  suggestions: PLACEHOLDER_SUGGESTIONS.slice(),
+  inbox: {},                  // { [id]: { id, from, subject, ... } }
+  suggestions: isExtension ? {} : arrayToById(PLACEHOLDER_SUGGESTIONS),
   classifying: false,
   classifyProgress: 0,
   classifyTotal: 0,
-  hasClassified: true,        // placeholder mode: pretend we already classified
+  hasClassified: !isExtension,
   applyingAll: false,
   applyProgress: 0,
   applyTotal: 0,
   corsError: false,
 };
+
+function arrayToById(arr) {
+  const o = {};
+  for (const s of arr) o[s.emailId] = s;
+  return o;
+}
+
+function sortedSuggestions() {
+  return Object.values(state.suggestions);
+}
+
+function sortedInbox() {
+  return Object.values(state.inbox);
+}
 
 // ------------------------ DOM refs ------------------------
 
@@ -51,9 +72,13 @@ const els = {
   optionsLink:    document.getElementById("options-link"),
   corsBanner:     document.getElementById("cors-banner"),
   rowTpl:         document.getElementById("suggestion-row-template"),
+  inboxDetails:   document.getElementById("inbox-details"),
+  inboxCount:     document.getElementById("inbox-count"),
+  inboxList:      document.getElementById("inbox-list"),
   devTools:       document.getElementById("dev-tools"),
   devAuthBtn:     document.getElementById("dev-auth-btn"),
-  devAuthResult:  document.getElementById("dev-auth-result"),
+  devFetchBtn:    document.getElementById("dev-fetch-btn"),
+  devResult:      document.getElementById("dev-result"),
 };
 
 // ------------------------ Rendering ------------------------
@@ -81,7 +106,8 @@ function renderClassifyButton() {
 
 function renderSuggestions() {
   els.suggestionList.innerHTML = "";
-  for (const s of state.suggestions) {
+  const list = sortedSuggestions();
+  for (const s of list) {
     const node = els.rowTpl.content.firstElementChild.cloneNode(true);
     node.dataset.emailId = s.emailId;
     node.querySelector(".suggestion-row__from").textContent = s.from;
@@ -92,12 +118,35 @@ function renderSuggestions() {
     pill.addEventListener("click", () => applyOne(s.emailId));
     els.suggestionList.append(node);
   }
-  els.suggestionCount.textContent = String(state.suggestions.length);
+  els.suggestionCount.textContent = String(list.length);
+}
+
+function renderInbox() {
+  const rows = sortedInbox();
+  if (rows.length === 0) {
+    els.inboxDetails.hidden = true;
+    return;
+  }
+  els.inboxDetails.hidden = false;
+  els.inboxCount.textContent = String(rows.length);
+  els.inboxList.innerHTML = "";
+  for (const r of rows) {
+    const li = document.createElement("li");
+    li.className = "inbox__item";
+    const from = document.createElement("span");
+    from.className = "inbox__from";
+    from.textContent = r.from || "(unknown)";
+    const subj = document.createElement("span");
+    subj.className = "inbox__subject";
+    subj.textContent = r.subject || "(no subject)";
+    li.append(from, subj);
+    els.inboxList.append(li);
+  }
 }
 
 function renderApplyAll() {
   const label = els.applyAllBtn.querySelector(".btn__label");
-  const hasSuggestions = state.suggestions.length > 0;
+  const hasSuggestions = sortedSuggestions().length > 0;
   els.applyAllBtn.hidden = !hasSuggestions;
 
   if (state.applyingAll) {
@@ -113,7 +162,7 @@ function renderApplyAll() {
 }
 
 function renderEmptyStates() {
-  const hasSuggestions = state.suggestions.length > 0;
+  const hasSuggestions = sortedSuggestions().length > 0;
   const showEmpty = !state.classifying && !hasSuggestions && state.hasClassified;
   const showPrompt = !state.classifying && !hasSuggestions && !state.hasClassified;
   els.emptyState.hidden = !showEmpty;
@@ -126,6 +175,7 @@ function renderCorsBanner() {
 
 function render() {
   renderClassifyButton();
+  renderInbox();
   renderSuggestions();
   renderApplyAll();
   renderEmptyStates();
@@ -142,7 +192,7 @@ function fadeOutThen(el, cb) {
 function applyOne(emailId) {
   const row = els.suggestionList.querySelector(`[data-email-id="${emailId}"]`);
   const mutate = () => {
-    state.suggestions = state.suggestions.filter((s) => s.emailId !== emailId);
+    delete state.suggestions[emailId];
     render();
   };
   if (row) fadeOutThen(row, mutate);
@@ -150,8 +200,8 @@ function applyOne(emailId) {
 }
 
 function applyAll() {
-  if (state.suggestions.length === 0 || state.applyingAll) return;
-  const queue = state.suggestions.slice();
+  const queue = sortedSuggestions();
+  if (queue.length === 0 || state.applyingAll) return;
   state.applyingAll = true;
   state.applyTotal = queue.length;
   state.applyProgress = 0;
@@ -173,8 +223,9 @@ function applyAll() {
   next();
 }
 
-// Simulated classification so the visual states can be verified in step 1.
-// Replaced in step 5 with chrome.runtime messaging + chrome.storage subscription.
+// Dev simulation used when the side panel is loaded outside the extension
+// (browser-served for visual iteration). Replaced in step 5 by chrome.runtime
+// messaging in-extension.
 function simulateClassify() {
   if (state.classifying) return;
   const demoPool = [
@@ -185,7 +236,7 @@ function simulateClassify() {
     { emailId: "s5", from: "Amazon",    subject: "Your order shipped",   action: "Archive" },
   ];
 
-  state.suggestions = [];
+  state.suggestions = {};
   state.classifying = true;
   state.classifyProgress = 0;
   state.classifyTotal = demoPool.length;
@@ -200,13 +251,19 @@ function simulateClassify() {
       render();
       return;
     }
-    state.suggestions.push(demoPool[i]);
-    i++;
+    const s = demoPool[i++];
+    state.suggestions[s.emailId] = s;
     state.classifyProgress = i;
     render();
     setTimeout(step, 260 + Math.random() * 260);
   }
   setTimeout(step, 200);
+}
+
+function handleClassifyClick() {
+  if (!isExtension) { simulateClassify(); return; }
+  // Real path is wired in step 5.
+  simulateClassify();
 }
 
 // ------------------------ Copy-to-clipboard ------------------------
@@ -225,7 +282,7 @@ document.addEventListener("click", (e) => {
 
 // ------------------------ Boot ------------------------
 
-els.classifyBtn.addEventListener("click", simulateClassify);
+els.classifyBtn.addEventListener("click", handleClassifyClick);
 els.applyAllBtn.addEventListener("click", applyAll);
 els.optionsLink.addEventListener("click", (e) => {
   e.preventDefault();
@@ -240,19 +297,91 @@ const devMode =
 
 if (devMode) els.devTools.hidden = false;
 
-els.devAuthBtn.addEventListener("click", async () => {
-  els.devAuthBtn.disabled = true;
-  els.devAuthResult.textContent = "…";
+async function runDevMessage(button, msg, renderResult) {
+  button.disabled = true;
+  els.devResult.textContent = "…";
   try {
-    const res = await chrome.runtime.sendMessage({ type: MSG.AUTH_TEST });
-    els.devAuthResult.textContent = res?.ok
-      ? `token: ${res.data.token}`
+    const res = await chrome.runtime.sendMessage(msg);
+    els.devResult.textContent = res?.ok
+      ? renderResult(res.data)
       : `error: ${res?.error?.message ?? "unknown"}`;
   } catch (err) {
-    els.devAuthResult.textContent = `error: ${err.message}`;
+    els.devResult.textContent = `error: ${err.message}`;
   } finally {
-    els.devAuthBtn.disabled = false;
+    button.disabled = false;
   }
-});
+}
+
+els.devAuthBtn.addEventListener("click", () =>
+  runDevMessage(els.devAuthBtn, { type: MSG.AUTH_TEST }, (d) => `token: ${d.token}`),
+);
+
+els.devFetchBtn.addEventListener("click", () =>
+  runDevMessage(els.devFetchBtn, { type: MSG.FETCH_INBOX }, (d) => `fetched: ${d.fetched}`),
+);
+
+// ------------------------ Storage subscription ------------------------
+
+async function hydrateFromStorage() {
+  if (!isExtension) return;
+  const local = await chrome.storage.local.get([
+    KEYS.INBOX, KEYS.SUGGESTIONS, KEYS.HAS_CLASSIFIED,
+  ]);
+  const session = await chrome.storage.session.get([
+    KEYS.CLASSIFY_PROGRESS, KEYS.APPLY_PROGRESS, KEYS.ERROR,
+  ]);
+  state.inbox = local[KEYS.INBOX] || {};
+  state.suggestions = local[KEYS.SUGGESTIONS] || {};
+  state.hasClassified = Boolean(local[KEYS.HAS_CLASSIFIED]);
+  const cp = session[KEYS.CLASSIFY_PROGRESS];
+  if (cp) {
+    state.classifying = Boolean(cp.classifying);
+    state.classifyProgress = cp.progress || 0;
+    state.classifyTotal = cp.total || 0;
+  }
+  const ap = session[KEYS.APPLY_PROGRESS];
+  if (ap) {
+    state.applyingAll = Boolean(ap.applying);
+    state.applyProgress = ap.progress || 0;
+    state.applyTotal = ap.total || 0;
+  }
+  state.corsError = session[KEYS.ERROR]?.kind === "cors";
+  render();
+}
+
+function subscribeToStorage() {
+  if (!isExtension) return;
+  chrome.storage.onChanged.addListener((changes, area) => {
+    let dirty = false;
+    if (area === "local") {
+      if (KEYS.INBOX in changes)          { state.inbox       = changes[KEYS.INBOX].newValue       || {}; dirty = true; }
+      if (KEYS.SUGGESTIONS in changes)    { state.suggestions = changes[KEYS.SUGGESTIONS].newValue || {}; dirty = true; }
+      if (KEYS.HAS_CLASSIFIED in changes) { state.hasClassified = Boolean(changes[KEYS.HAS_CLASSIFIED].newValue); dirty = true; }
+    } else if (area === "session") {
+      if (KEYS.CLASSIFY_PROGRESS in changes) {
+        const cp = changes[KEYS.CLASSIFY_PROGRESS].newValue || {};
+        state.classifying = Boolean(cp.classifying);
+        state.classifyProgress = cp.progress || 0;
+        state.classifyTotal = cp.total || 0;
+        dirty = true;
+      }
+      if (KEYS.APPLY_PROGRESS in changes) {
+        const ap = changes[KEYS.APPLY_PROGRESS].newValue || {};
+        state.applyingAll = Boolean(ap.applying);
+        state.applyProgress = ap.progress || 0;
+        state.applyTotal = ap.total || 0;
+        dirty = true;
+      }
+      if (KEYS.ERROR in changes) {
+        state.corsError = changes[KEYS.ERROR].newValue?.kind === "cors";
+        dirty = true;
+      }
+    }
+    if (dirty) render();
+  });
+}
+
+hydrateFromStorage();
+subscribeToStorage();
 
 render();
