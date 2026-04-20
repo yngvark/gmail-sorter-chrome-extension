@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Gmail Sorter</title>
+    <link rel="stylesheet" href="sidepanel.css" />
+  </head>
+  <body>
+    <div class="paper" aria-hidden="true"></div>
+
+    <header class="masthead">
+      <div class="eyebrow">The Inbox Gazette</div>
+      <h1 class="title">Gmail Sorter</h1>
+      <div class="rule"></div>
+    </header>
+
+    <main class="content">
+      <section class="banner banner--error" id="cors-banner" hidden>
+        <div class="banner__title">Can&rsquo;t reach Ollama</div>
+        <p class="banner__body">
+          Start Ollama with origins allowed for this extension:
+        </p>
+        <code class="banner__code" id="cors-code">OLLAMA_ORIGINS=chrome-extension://* ollama serve</code>
+        <button class="banner__copy" type="button" data-copy-target="cors-code">Copy</button>
+      </section>
+
+      <section class="primary-action">
+        <button class="btn btn--primary" id="classify-btn" type="button">
+          <span class="btn__label">Classify inbox</span>
+          <span class="btn__count" id="classify-count" hidden></span>
+        </button>
+        <div class="progress" id="progress" hidden>
+          <div class="progress__bar" id="progress-bar"></div>
+        </div>
+      </section>
+
+      <section class="suggestions" aria-label="Suggestions">
+        <div class="section-head">
+          <span class="section-head__label">Suggestions</span>
+          <span class="section-head__count" id="suggestion-count">0</span>
+        </div>
+
+        <ul class="suggestion-list" id="suggestion-list"></ul>
+
+        <p class="empty-state" id="empty-state" hidden>
+          Nothing to sort. Click <em>Classify inbox</em> to re-run.
+        </p>
+
+        <p class="prompt-state" id="prompt-state">
+          Your inbox is waiting. Press <em>Classify inbox</em> above to begin.
+        </p>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <button class="btn btn--secondary" id="apply-all-btn" type="button" hidden>
+        <span class="btn__label">Apply all</span>
+        <span class="btn__count" id="apply-count" hidden></span>
+      </button>
+      <a class="footer__link" id="options-link" href="#">Settings &rsaquo;</a>
+    </footer>
+
+    <template id="suggestion-row-template">
+      <li class="suggestion-row">
+        <div class="suggestion-row__meta">
+          <div class="suggestion-row__from"></div>
+          <div class="suggestion-row__subject"></div>
+        </div>
+        <button class="action-pill" type="button"></button>
+      </li>
+    </template>
+
+    <script type="module" src="sidepanel.js"></script>
+  </body>
+</html>

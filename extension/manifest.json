@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Gmail Sorter",
+  "version": "0.1.0",
+  "description": "Classify your Gmail inbox with a local Ollama model; apply labels, archive, star — one click per action.",
+  "background": { "service_worker": "background/background.js", "type": "module" },
+  "permissions": ["identity", "storage", "sidePanel"],
+  "host_permissions": [
+    "http://localhost:11434/*",
+    "https://gmail.googleapis.com/*"
+  ],
+  "oauth2": {
+    "client_id": "PUT_YOUR_CLIENT_ID_HERE.apps.googleusercontent.com",
+    "scopes": ["https://www.googleapis.com/auth/gmail.modify"]
+  },
+  "action": { "default_title": "Open Gmail Sorter" },
+  "side_panel": { "default_path": "sidepanel/sidepanel.html" },
+  "options_page": "options/options.html"
+}
