@@ -105,20 +105,51 @@ function renderClassifyButton() {
   }
 }
 
+// Renders the suggestion list as a DOM diff. Existing rows are kept so
+// in-progress fade-outs aren't interrupted when storage.onChanged fires a
+// re-render. Rows whose backing suggestion has vanished are marked
+// "leaving" and removed once their fade animation finishes.
 function renderSuggestions() {
-  els.suggestionList.innerHTML = "";
   const list = sortedSuggestions();
-  for (const s of list) {
-    const node = els.rowTpl.content.firstElementChild.cloneNode(true);
-    node.dataset.emailId = s.emailId;
-    node.querySelector(".suggestion-row__from").textContent = s.from;
-    node.querySelector(".suggestion-row__subject").textContent = s.subject;
-    const pill = node.querySelector(".action-pill");
-    pill.textContent = s.action;
-    pill.dataset.action = s.action;
-    pill.addEventListener("click", () => applyOne(s.emailId));
-    els.suggestionList.append(node);
+  const wantedIds = new Set(list.map((s) => s.emailId));
+
+  // Remove rows whose suggestions no longer exist. A row may already be in
+  // the "leaving" state — either we marked it for fade on click, or an
+  // earlier render pass did. Use dataset.removing to avoid double-scheduling
+  // the removal timer.
+  for (const row of [...els.suggestionList.children]) {
+    const id = row.dataset.emailId;
+    if (wantedIds.has(id)) continue;
+    if (!row.classList.contains("leaving")) row.classList.add("leaving");
+    if (!row.dataset.removing) {
+      row.dataset.removing = "1";
+      setTimeout(() => row.remove(), FADE_DURATION_MS + 20);
+    }
   }
+
+  // Add rows for new suggestions. Keep existing ones in place (updating their
+  // action pill if it changed).
+  const existing = new Map();
+  for (const row of els.suggestionList.children) existing.set(row.dataset.emailId, row);
+
+  for (const s of list) {
+    let row = existing.get(s.emailId);
+    if (!row) {
+      row = els.rowTpl.content.firstElementChild.cloneNode(true);
+      row.dataset.emailId = s.emailId;
+      row.querySelector(".suggestion-row__from").textContent = s.from;
+      row.querySelector(".suggestion-row__subject").textContent = s.subject;
+      const pill = row.querySelector(".action-pill");
+      pill.addEventListener("click", () => applyOne(s.emailId));
+      els.suggestionList.append(row);
+    }
+    const pill = row.querySelector(".action-pill");
+    if (pill.textContent !== s.action) pill.textContent = s.action;
+    pill.dataset.action = s.action;
+  }
+
+  // Count reflects non-leaving rows only — visual counter should match what
+  // the user sees.
   els.suggestionCount.textContent = String(list.length);
 }
 
@@ -190,14 +221,31 @@ function fadeOutThen(el, cb) {
   setTimeout(cb, FADE_DURATION_MS);
 }
 
-function applyOne(emailId) {
+async function applyOne(emailId) {
   const row = els.suggestionList.querySelector(`[data-email-id="${emailId}"]`);
-  const mutate = () => {
+  if (row) row.classList.add("leaving");
+
+  if (isExtension) {
+    try {
+      const res = await chrome.runtime.sendMessage({ type: MSG.APPLY_ONE, emailId });
+      if (!res?.ok) {
+        if (row) row.classList.remove("leaving");
+        console.error("apply failed", res);
+      }
+      // On success, storage.onChanged drops the suggestion; renderSuggestions
+      // diff keeps the row fading then removes it when the fade completes.
+    } catch (err) {
+      if (row) row.classList.remove("leaving");
+      console.error(err);
+    }
+    return;
+  }
+
+  // Placeholder path (outside the extension): local mutation only.
+  setTimeout(() => {
     delete state.suggestions[emailId];
     render();
-  };
-  if (row) fadeOutThen(row, mutate);
-  else mutate();
+  }, FADE_DURATION_MS);
 }
 
 function applyAll() {
