@@ -261,10 +261,27 @@ function simulateClassify() {
   setTimeout(step, 200);
 }
 
-function handleClassifyClick() {
+async function handleClassifyClick() {
   if (!isExtension) { simulateClassify(); return; }
-  // Real path is wired in step 5.
-  simulateClassify();
+  try {
+    // Optimistic UI: flip classifying flag immediately so the button disables
+    // without waiting for the service worker to wake up and write session
+    // storage. The real progress will arrive via storage.onChanged shortly.
+    state.classifying = true;
+    state.classifyProgress = 0;
+    state.classifyTotal = 0;
+    render();
+    const res = await chrome.runtime.sendMessage({ type: MSG.CLASSIFY_INBOX });
+    if (!res?.ok) {
+      state.classifying = false;
+      render();
+      console.error("classify failed", res);
+    }
+  } catch (err) {
+    state.classifying = false;
+    render();
+    console.error(err);
+  }
 }
 
 // ------------------------ Copy-to-clipboard ------------------------

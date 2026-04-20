@@ -64,16 +64,32 @@ export async function getSuggestions() {
   return (await get("local", KEYS.SUGGESTIONS, {})) || {};
 }
 
-export async function putSuggestion(s) {
-  const all = await getSuggestions();
-  all[s.emailId] = s;
-  await set("local", KEYS.SUGGESTIONS, all);
+// chrome.storage has no transaction primitive. When multiple concurrent
+// classifiers all do read-modify-write on `suggestions`, the last writer
+// wins and earlier entries are lost. Serialise them through a promise chain
+// — only the "suggestions" key mutates often enough to need this.
+let suggestionsLock = Promise.resolve();
+function withSuggestionsLock(fn) {
+  const next = suggestionsLock.then(fn, fn);
+  // Ensure rejections in fn don't poison the lock for subsequent callers.
+  suggestionsLock = next.catch(() => {});
+  return next;
 }
 
-export async function deleteSuggestion(emailId) {
-  const all = await getSuggestions();
-  delete all[emailId];
-  await set("local", KEYS.SUGGESTIONS, all);
+export function putSuggestion(s) {
+  return withSuggestionsLock(async () => {
+    const all = await getSuggestions();
+    all[s.emailId] = s;
+    await set("local", KEYS.SUGGESTIONS, all);
+  });
+}
+
+export function deleteSuggestion(emailId) {
+  return withSuggestionsLock(async () => {
+    const all = await getSuggestions();
+    delete all[emailId];
+    await set("local", KEYS.SUGGESTIONS, all);
+  });
 }
 
 export async function putError(kind, message, hint) {
