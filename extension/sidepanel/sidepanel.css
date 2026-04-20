@@ -190,6 +190,84 @@ body {
 .banner__copy:hover { background: var(--sienna); color: var(--paper); }
 .banner__copy:active { transform: translateY(1px); }
 
+/* ---------------- Apply-error toasts ---------------- */
+
+.toasts {
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.toast {
+  border: 1px solid var(--sienna);
+  padding: 8px 32px 8px 12px;
+  background:
+    repeating-linear-gradient(135deg, rgba(168,83,42,0.04) 0 6px, transparent 6px 12px),
+    var(--paper);
+  position: relative;
+  font-size: 13px;
+  line-height: 1.4;
+  animation: row-in var(--tx-med) forwards;
+}
+
+.toast__title {
+  font-family: var(--serif-display);
+  font-weight: 600;
+  color: var(--sienna);
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+
+.toast__body {
+  font-family: var(--serif-body);
+  color: var(--ink-2);
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+}
+
+.toast__close {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  background: transparent;
+  border: 0;
+  padding: 2px 6px;
+  color: var(--ink-3);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+.toast__close:hover { color: var(--sienna); }
+
+/* ---------------- Dry-run pill ---------------- */
+
+.dry-run-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 6px 12px;
+  border: 1px dashed var(--gold);
+  background: linear-gradient(90deg, rgba(183,144,60,0.08), transparent);
+  font-family: var(--sans);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.dry-run-pill__hint {
+  font-family: var(--serif-body);
+  font-style: italic;
+  font-size: 11px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-3);
+}
+
 /* ---------------- Primary action (Classify) ---------------- */
 
 .primary-action {

@@ -17,13 +17,20 @@
 
     <main class="content">
       <section class="banner banner--error" id="cors-banner" hidden>
-        <div class="banner__title">Can&rsquo;t reach Ollama</div>
-        <p class="banner__body">
+        <div class="banner__title" id="cors-title">Can&rsquo;t reach Ollama</div>
+        <p class="banner__body" id="cors-body">
           Start Ollama with origins allowed for this extension:
         </p>
         <code class="banner__code" id="cors-code">OLLAMA_ORIGINS=chrome-extension://* ollama serve</code>
         <button class="banner__copy" type="button" data-copy-target="cors-code">Copy</button>
       </section>
+
+      <section class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></section>
+
+      <div class="dry-run-pill" id="dry-run-pill" hidden>
+        <span>Dry run</span>
+        <span class="dry-run-pill__hint">No Gmail mutations</span>
+      </div>
 
       <section class="primary-action">
         <button class="btn btn--primary" id="classify-btn" type="button">

@@ -8,6 +8,7 @@
 
 import { MSG } from "../lib/messages.js";
 import { KEYS } from "../background/storage.js";
+import { DEFAULT_SETTINGS } from "../lib/schema.js";
 
 // ------------------------ Config ------------------------
 
@@ -39,7 +40,9 @@ const state = {
   applyingAll: false,
   applyProgress: 0,
   applyTotal: 0,
-  corsError: false,
+  lastError: null,            // { kind, message, hint } from storage.session
+  applyErrors: {},            // { [emailId]: { message } }
+  settings: DEFAULT_SETTINGS,
 };
 
 function arrayToById(arr) {
@@ -71,6 +74,11 @@ const els = {
   applyCount:     document.getElementById("apply-count"),
   optionsLink:    document.getElementById("options-link"),
   corsBanner:     document.getElementById("cors-banner"),
+  corsTitle:      document.getElementById("cors-title"),
+  corsBody:       document.getElementById("cors-body"),
+  corsCode:       document.getElementById("cors-code"),
+  toasts:         document.getElementById("toasts"),
+  dryRunPill:     document.getElementById("dry-run-pill"),
   rowTpl:         document.getElementById("suggestion-row-template"),
   inboxDetails:   document.getElementById("inbox-details"),
   inboxCount:     document.getElementById("inbox-count"),
@@ -203,7 +211,83 @@ function renderEmptyStates() {
 }
 
 function renderCorsBanner() {
-  els.corsBanner.hidden = !state.corsError;
+  const err = state.lastError;
+  if (!err) { els.corsBanner.hidden = true; return; }
+
+  els.corsBanner.hidden = false;
+  // Tailor the banner to the error kind.
+  if (err.kind === "cors") {
+    els.corsTitle.textContent = "Can\u2019t reach Ollama";
+    els.corsBody.textContent  = "Start Ollama with origins allowed for this extension:";
+    els.corsCode.textContent  = "OLLAMA_ORIGINS=chrome-extension://* ollama serve";
+  } else if (err.kind === "model-missing") {
+    els.corsTitle.textContent = "Model not installed";
+    els.corsBody.textContent  = err.message;
+    els.corsCode.textContent  = err.hint || `ollama pull ${state.settings.ollamaModel}`;
+  } else if (err.kind === "timeout") {
+    els.corsTitle.textContent = "Ollama timed out";
+    els.corsBody.textContent  = err.message;
+    els.corsCode.textContent  = "ollama serve   # ensure it's running";
+  } else {
+    els.corsTitle.textContent = "Something went wrong";
+    els.corsBody.textContent  = err.message || String(err);
+    els.corsCode.textContent  = err.hint || "";
+    if (!err.hint) els.corsCode.hidden = true; else els.corsCode.hidden = false;
+  }
+}
+
+function renderToasts() {
+  const errors = Object.entries(state.applyErrors);
+  // Keep existing toasts in place; add new; remove gone.
+  const have = new Map();
+  for (const t of els.toasts.children) have.set(t.dataset.emailId, t);
+
+  const wanted = new Set(errors.map(([id]) => id));
+  for (const [id, node] of have) {
+    if (!wanted.has(id)) node.remove();
+  }
+  for (const [id, err] of errors) {
+    if (have.has(id)) continue;
+    const toast = document.createElement("div");
+    toast.className = "toast";
+    toast.dataset.emailId = id;
+
+    const title = document.createElement("div");
+    title.className = "toast__title";
+    title.textContent = "Couldn\u2019t apply";
+
+    const body = document.createElement("div");
+    body.className = "toast__body";
+    body.textContent = err.message;
+
+    const close = document.createElement("button");
+    close.type = "button";
+    close.className = "toast__close";
+    close.setAttribute("aria-label", "Dismiss");
+    close.textContent = "\u00D7";
+    close.addEventListener("click", () => dismissToast(id));
+
+    toast.append(title, body, close);
+    els.toasts.append(toast);
+  }
+}
+
+function dismissToast(emailId) {
+  if (isExtension) {
+    // Clear from storage; storage.onChanged will rerender.
+    chrome.storage.local.get(KEYS.APPLY_ERRORS).then((res) => {
+      const all = res[KEYS.APPLY_ERRORS] || {};
+      delete all[emailId];
+      chrome.storage.local.set({ [KEYS.APPLY_ERRORS]: all });
+    });
+  } else {
+    delete state.applyErrors[emailId];
+    render();
+  }
+}
+
+function renderDryRunPill() {
+  els.dryRunPill.hidden = !state.settings?.dryRun;
 }
 
 function render() {
@@ -213,6 +297,8 @@ function render() {
   renderApplyAll();
   renderEmptyStates();
   renderCorsBanner();
+  renderToasts();
+  renderDryRunPill();
 }
 
 // ------------------------ Actions ------------------------
@@ -425,14 +511,18 @@ els.devSuperstarBtn.addEventListener("click", () =>
 async function hydrateFromStorage() {
   if (!isExtension) return;
   const local = await chrome.storage.local.get([
-    KEYS.INBOX, KEYS.SUGGESTIONS, KEYS.HAS_CLASSIFIED,
+    KEYS.INBOX, KEYS.SUGGESTIONS, KEYS.HAS_CLASSIFIED, KEYS.APPLY_ERRORS,
   ]);
   const session = await chrome.storage.session.get([
     KEYS.CLASSIFY_PROGRESS, KEYS.APPLY_PROGRESS, KEYS.ERROR,
   ]);
+  const sync = await chrome.storage.sync.get([KEYS.SETTINGS]);
+
   state.inbox = local[KEYS.INBOX] || {};
   state.suggestions = local[KEYS.SUGGESTIONS] || {};
   state.hasClassified = Boolean(local[KEYS.HAS_CLASSIFIED]);
+  state.applyErrors = local[KEYS.APPLY_ERRORS] || {};
+
   const cp = session[KEYS.CLASSIFY_PROGRESS];
   if (cp) {
     state.classifying = Boolean(cp.classifying);
@@ -445,7 +535,8 @@ async function hydrateFromStorage() {
     state.applyProgress = ap.progress || 0;
     state.applyTotal = ap.total || 0;
   }
-  state.corsError = session[KEYS.ERROR]?.kind === "cors";
+  state.lastError = session[KEYS.ERROR] || null;
+  state.settings = { ...DEFAULT_SETTINGS, ...(sync[KEYS.SETTINGS] || {}) };
   render();
 }
 
@@ -457,6 +548,7 @@ function subscribeToStorage() {
       if (KEYS.INBOX in changes)          { state.inbox       = changes[KEYS.INBOX].newValue       || {}; dirty = true; }
       if (KEYS.SUGGESTIONS in changes)    { state.suggestions = changes[KEYS.SUGGESTIONS].newValue || {}; dirty = true; }
       if (KEYS.HAS_CLASSIFIED in changes) { state.hasClassified = Boolean(changes[KEYS.HAS_CLASSIFIED].newValue); dirty = true; }
+      if (KEYS.APPLY_ERRORS in changes)   { state.applyErrors = changes[KEYS.APPLY_ERRORS].newValue || {}; dirty = true; }
     } else if (area === "session") {
       if (KEYS.CLASSIFY_PROGRESS in changes) {
         const cp = changes[KEYS.CLASSIFY_PROGRESS].newValue || {};
@@ -473,7 +565,12 @@ function subscribeToStorage() {
         dirty = true;
       }
       if (KEYS.ERROR in changes) {
-        state.corsError = changes[KEYS.ERROR].newValue?.kind === "cors";
+        state.lastError = changes[KEYS.ERROR].newValue || null;
+        dirty = true;
+      }
+    } else if (area === "sync") {
+      if (KEYS.SETTINGS in changes) {
+        state.settings = { ...DEFAULT_SETTINGS, ...(changes[KEYS.SETTINGS].newValue || {}) };
         dirty = true;
       }
     }
