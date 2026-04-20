@@ -1,6 +1,7 @@
 .idea/
 .playwright-cli/
 .scratch/
+.claude/
 prototype/*.png
 node_modules/
 dist/
