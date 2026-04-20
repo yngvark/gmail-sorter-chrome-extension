@@ -38,6 +38,10 @@ async function handle(msg) {
       const result = await pipeline.fetchInbox({ maxResults: msg.maxResults || 50 });
       return reply(result);
     }
+    case MSG.CLASSIFY_ONE: {
+      const result = await pipeline.classifyOne(msg.emailId);
+      return reply(result);
+    }
     default:
       return replyError({ kind: "unknown-message", message: `Unknown message type: ${msg?.type}` });
   }

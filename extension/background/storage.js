@@ -4,6 +4,8 @@
 //   session → classify/apply progress (cleared when browser closes)
 //   sync    → user settings (synced across devices)
 
+import { DEFAULT_SETTINGS } from "../lib/schema.js";
+
 export const KEYS = Object.freeze({
   INBOX:        "inboxEmails",       // { [id]: { id, from, subject, snippet, labelIds } }
   SUGGESTIONS:  "suggestions",       // { [id]: { emailId, from, subject, action } }
@@ -100,4 +102,20 @@ export async function clearApplyError(id) {
   const all = (await get("local", KEYS.APPLY_ERRORS, {})) || {};
   delete all[id];
   await set("local", KEYS.APPLY_ERRORS, all);
+}
+
+export async function getSettings() {
+  const saved = (await get("sync", KEYS.SETTINGS, {})) || {};
+  return { ...DEFAULT_SETTINGS, ...saved };
+}
+
+export async function setSettings(patch) {
+  const current = await getSettings();
+  const next = { ...current, ...patch };
+  await set("sync", KEYS.SETTINGS, next);
+  return next;
+}
+
+export async function setHasClassified(value = true) {
+  await set("local", KEYS.HAS_CLASSIFIED, value);
 }

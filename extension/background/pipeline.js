@@ -5,6 +5,7 @@
 import * as gmail from "./gmail.js";
 import { getToken } from "./auth.js";
 import * as store from "./storage.js";
+import { classifyEmail } from "./classify.js";
 
 // ------------------------ Concurrency helper ------------------------
 
@@ -42,4 +43,31 @@ export async function fetchInbox({ maxResults = 50 } = {}) {
   await store.setInbox(byId);
 
   return { fetched: Object.keys(byId).length };
+}
+
+// ------------------------ classifyOne (dev) ------------------------
+
+export async function classifyOne(emailId) {
+  const inbox = await store.getInbox();
+  const row = inbox[emailId] || Object.values(inbox)[0];
+  if (!row) return { error: "inbox is empty — run fetchInbox first" };
+
+  const settings = await store.getSettings();
+  const token = await getToken({ interactive: true });
+
+  // Escalate to full body if we don't already have one (metadata fetch gave
+  // us just from/subject/snippet).
+  let email = row;
+  if (!email.body) {
+    email = await gmail.getMessageFull(token, row.id);
+  }
+
+  const result = await classifyEmail({ settings, email });
+  console.log("[gmail-sorter] classifyOne →", { from: email.from, subject: email.subject, result });
+  if (!result.ok) {
+    await store.putError(result.error.kind, result.error.message, result.error.hint);
+  } else {
+    await store.clearError();
+  }
+  return { emailId: email.id, from: email.from, subject: email.subject, ...result };
 }
