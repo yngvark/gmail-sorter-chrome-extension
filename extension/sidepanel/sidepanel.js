@@ -1,9 +1,12 @@
 // Gmail Sorter — side panel view.
 //
-// Step 1: pure placeholder. Renders demo suggestions and provides a local
-// classify-state machine so the visual states can be verified without the
-// service worker. Subsequent steps replace the placeholder data source with
-// chrome.storage reads and message-passing to the service worker.
+// Step 1: placeholder renderer with a local classify-state machine so the
+// visual states can be verified. Step 2: adds a dev-only "Test auth" affordance
+// (gated on `?dev=1`) that round-trips to the service worker.
+// Subsequent steps replace the placeholder data source with chrome.storage
+// reads and message-passing to the service worker.
+
+import { MSG } from "../lib/messages.js";
 
 // ------------------------ Config ------------------------
 
@@ -48,6 +51,9 @@ const els = {
   optionsLink:    document.getElementById("options-link"),
   corsBanner:     document.getElementById("cors-banner"),
   rowTpl:         document.getElementById("suggestion-row-template"),
+  devTools:       document.getElementById("dev-tools"),
+  devAuthBtn:     document.getElementById("dev-auth-btn"),
+  devAuthResult:  document.getElementById("dev-auth-result"),
 };
 
 // ------------------------ Rendering ------------------------
@@ -224,6 +230,29 @@ els.applyAllBtn.addEventListener("click", applyAll);
 els.optionsLink.addEventListener("click", (e) => {
   e.preventDefault();
   if (globalThis.chrome?.runtime?.openOptionsPage) chrome.runtime.openOptionsPage();
+});
+
+// ------------------------ Dev tools ------------------------
+
+const devMode =
+  new URLSearchParams(location.search).has("dev") ||
+  globalThis.chrome?.runtime?.getManifest?.().version_name?.includes("dev");
+
+if (devMode) els.devTools.hidden = false;
+
+els.devAuthBtn.addEventListener("click", async () => {
+  els.devAuthBtn.disabled = true;
+  els.devAuthResult.textContent = "…";
+  try {
+    const res = await chrome.runtime.sendMessage({ type: MSG.AUTH_TEST });
+    els.devAuthResult.textContent = res?.ok
+      ? `token: ${res.data.token}`
+      : `error: ${res?.error?.message ?? "unknown"}`;
+  } catch (err) {
+    els.devAuthResult.textContent = `error: ${err.message}`;
+  } finally {
+    els.devAuthBtn.disabled = false;
+  }
 });
 
 render();

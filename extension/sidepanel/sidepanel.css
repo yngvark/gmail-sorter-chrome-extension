@@ -462,6 +462,34 @@ body {
 
 .footer__link:hover { color: var(--ink); }
 
+/* Dev tools — gated on ?dev=1 query param, hidden in production */
+.dev-tools {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.dev-btn {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  background: transparent;
+  border: 1px dashed var(--rule);
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.dev-btn:hover { color: var(--ink); border-color: var(--ink-3); }
+
+.dev-result {
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---------------- Reduced motion ---------------- */
 
 @media (prefers-reduced-motion: reduce) {
