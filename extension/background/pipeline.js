@@ -238,6 +238,18 @@ export async function applyOne(emailId) {
   }
 }
 
+// ------------------------ Superstar probe (dev) ------------------------
+
+export async function probeSuperstar({ emailId, variant = "red" } = {}) {
+  const inbox = await store.getInbox();
+  const row = emailId ? inbox[emailId] : Object.values(inbox)[0];
+  if (!row) return { error: "inbox is empty — run fetchInbox first" };
+  const token = await getToken({ interactive: true });
+  const result = await gmail.probeSuperstar(token, row.id, variant);
+  console.log("[gmail-sorter] superstar probe →", result);
+  return result;
+}
+
 async function removeFromInbox(emailId) {
   const inbox = await store.getInbox();
   if (emailId in inbox) {

@@ -79,6 +79,7 @@ const els = {
   devAuthBtn:     document.getElementById("dev-auth-btn"),
   devFetchBtn:    document.getElementById("dev-fetch-btn"),
   devClassifyBtn: document.getElementById("dev-classify-btn"),
+  devSuperstarBtn:document.getElementById("dev-superstar-btn"),
   devResult:      document.getElementById("dev-result"),
 };
 
@@ -408,6 +409,14 @@ els.devClassifyBtn.addEventListener("click", () =>
   runDevMessage(els.devClassifyBtn, { type: MSG.CLASSIFY_ONE }, (d) =>
     d.ok ? `→ ${d.action}${d.fallback ? ` (fallback: ${d.fallback})` : ""}`
          : `error: ${d.error?.message ?? "unknown"}`,
+  ),
+);
+
+els.devSuperstarBtn.addEventListener("click", () =>
+  runDevMessage(els.devSuperstarBtn, { type: MSG.PROBE_SUPERSTAR, variant: "red" }, (d) =>
+    d.writable === true  ? `^ss_sr writable ✓`
+  : d.writable === false ? `^ss_sr NOT writable (use custom labels)`
+  : `probe: ${JSON.stringify(d)}`,
   ),
 );
 
