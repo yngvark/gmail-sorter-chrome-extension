@@ -8,6 +8,16 @@ nothing runs automatically.
 
 Tested in Brave and Chrome.
 
+## Prerequisites
+
+- **Chromium-based browser** — [Chrome](https://www.google.com/chrome/) or
+  [Brave](https://brave.com/download/). Other Chromium browsers should work
+  but are untested.
+- **Ollama** — [ollama.com/download](https://ollama.com/download) (macOS,
+  Linux, Windows). The extension talks to it over `http://localhost:11434`.
+- **Node.js 20+** — only if you want to run the test suite
+  ([nodejs.org](https://nodejs.org/)). Not required to use the extension.
+
 ## First-time setup
 
 Four things to wire up once. None of them need to be done again.
