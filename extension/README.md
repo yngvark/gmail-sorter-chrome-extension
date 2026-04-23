@@ -115,7 +115,11 @@ and add the public key to `manifest.json` as `"key"`. See
 
 ## Using it
 
-1. Click the toolbar icon → the side panel opens.
+1. Click the Gmail Sorter icon in your browser's toolbar (top-right of
+   the browser window; if it's not pinned, open the puzzle-piece
+   extensions menu and click it there). The side panel opens. You don't
+   need to be on a Gmail tab — the extension talks to the Gmail API
+   directly, so any tab works.
 2. Click **Classify inbox** — the extension fetches your inbox (default
    50 most recent), asks Ollama about each one, and streams suggestions
    into the panel.
