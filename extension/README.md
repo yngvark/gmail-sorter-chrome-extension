@@ -24,16 +24,27 @@ Four things to wire up once. None of them need to be done again.
 
 ### 1 — Allow the extension to reach Ollama (CORS)
 
-Chromium blocks extension requests to `localhost:11434` unless Ollama is
-told which origins may talk to it. On macOS, Ollama.app binds port
-`11434` at login, so you can't just run `ollama serve` — you need to
-inject the env var into the running service:
+Chromium blocks extension requests to `localhost:11434` unless Ollama
+is told which origins may talk to it.
 
-```bash
-launchctl setenv OLLAMA_ORIGINS "chrome-extension://*"
-```
+**On macOS**, Ollama runs as a background app that auto-starts at login
+(look for its llama icon in the menu bar). It already owns port 11434,
+so running `ollama serve` in a terminal won't help — you need to tell
+that background app to allow extension origins:
 
-Then quit Ollama from the menu bar and relaunch it.
+1. In Terminal, run:
+   ```bash
+   launchctl setenv OLLAMA_ORIGINS "chrome-extension://*"
+   ```
+   This sets the env var at the macOS launch-services level, so any
+   process launched afterwards inherits it.
+2. Click the Ollama icon in the menu bar → **Quit Ollama**.
+3. Relaunch Ollama (Spotlight → "Ollama", or from Applications). It now
+   picks up the env var and accepts extension requests.
+
+**On Linux/Windows**, set `OLLAMA_ORIGINS=chrome-extension://*` in
+Ollama's environment before starting the server. See the Ollama FAQ
+link below for platform-specific instructions.
 
 Why `*` and not a specific extension ID: the ID of an unpacked extension
 changes when the extension is first loaded into a browser, and pinning
