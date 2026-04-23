@@ -46,12 +46,18 @@ origins to access Ollama?](https://github.com/ollama/ollama/blob/main/docs/faq.m
 ### 2 — Pull a model
 
 ```bash
-ollama pull NbAiLab/borealis-4b-instruct-preview
+ollama pull hf.co/NbAiLab/borealis-4b-instruct-preview-gguf:Q8_0
 ```
 
-The default model is `NbAiLab/borealis-4b-instruct-preview` (small,
-English- and Norwegian-friendly). Any instruction-tuned model with decent
-JSON compliance will work — change it in the options page. Smaller models
+The `hf.co/` prefix tells Ollama to fetch from Hugging Face rather than
+from its own registry. `:Q8_0` is the 8-bit quantization (~4 GB) — a good
+quality/size tradeoff. Other tags on the same repo: `:BF16`, `:F16`
+(larger, slightly higher quality).
+
+The default model is
+`hf.co/NbAiLab/borealis-4b-instruct-preview-gguf:Q8_0` (small, English-
+and Norwegian-friendly). Any instruction-tuned model with decent JSON
+compliance will work — change it in the options page. Smaller models
 classify faster; larger models are more accurate on edge cases.
 
 ### 3 — Create a Google Cloud OAuth client ID

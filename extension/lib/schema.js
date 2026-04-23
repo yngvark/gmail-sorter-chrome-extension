@@ -20,7 +20,7 @@ When genuinely unsure → Leave alone.`;
 
 export const DEFAULT_SETTINGS = Object.freeze({
   ollamaBaseUrl: "http://localhost:11434",
-  ollamaModel:   "NbAiLab/borealis-4b-instruct-preview",
+  ollamaModel:   "hf.co/NbAiLab/borealis-4b-instruct-preview-gguf:Q8_0",
   numCtx:        64000,
   rules:         DEFAULT_RULES,
   maxInbox:      50,
