@@ -130,24 +130,26 @@ supported on Chrome apps`).
 9. Back on `chrome://extensions`, click the extension's **reload**
    icon.
 
-### (Strongly recommended) Pin the extension ID across reloads
+### 5 — Pin the extension ID (strongly recommended)
 
-Unpacked extensions get a fresh ID every time they're loaded from a
-different path or machine. Because the redirect URI above is derived
-from the extension ID, every such change invalidates your Google OAuth
-redirect URI and you have to re-edit it in Google Cloud.
+Without a `key` in `manifest.json`, the extension ID changes whenever
+you load the extension from a different path or machine. That
+invalidates the redirect URI you registered in step 4.
 
-To pin the ID, generate a key pair and add the public key as
-`"key"` in `manifest.json`:
+1. Generate a key. Run:
+   ```bash
+   openssl genrsa 2048 | openssl rsa -pubout -outform DER | base64 -w0
+   ```
+2. Copy the base64 output (one long line).
+3. Open `extension/manifest.json`.
+4. Add `"key": "<paste-the-string>"` as a top-level field.
+5. Save the file.
+6. On `chrome://extensions`, click the extension's **reload** icon.
+7. Look at the extension's ID on `chrome://extensions`. If it's
+   different from the one you used in step 4, repeat step 4 with the
+   new ID — the ID is now permanent, so you'll only do this once.
 
-```bash
-openssl genrsa 2048 | openssl rsa -pubout -outform DER | base64 -w0
-```
-
-Paste the output as `"key": "..."` at the top level of `manifest.json`.
-Reload the extension once — the ID shown in `chrome://extensions` is now
-stable across reloads and machines. See
-[Keep consistent extension ID](https://developer.chrome.com/docs/extensions/reference/manifest/key).
+Reference: [Keep consistent extension ID](https://developer.chrome.com/docs/extensions/reference/manifest/key).
 
 ## Using it
 
