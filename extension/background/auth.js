@@ -60,7 +60,7 @@ async function getTokenImpl({ interactive }) {
 }
 
 async function runInteractiveAuth() {
-  const { client_id, scopes } = readManifestOAuthConfig();
+  const { client_id, client_secret, scopes } = readManifestOAuthConfig();
   const redirect_uri  = chrome.identity.getRedirectURL();
   const code_verifier = generateCodeVerifier();
   const code_challenge = await deriveCodeChallenge(code_verifier);
@@ -90,7 +90,7 @@ async function runInteractiveAuth() {
     throw authError("oauth state mismatch");
   }
 
-  const tokenResponse = await exchangeCode({ client_id, redirect_uri, code, code_verifier });
+  const tokenResponse = await exchangeCode({ client_id, client_secret, redirect_uri, code, code_verifier });
   const access = normalizeTokenResponse(tokenResponse);
   await writeAccess(access);
   if (tokenResponse.refresh_token) await writeRefresh(tokenResponse.refresh_token);
@@ -190,19 +190,24 @@ function authError(message) {
 
 function readManifestOAuthConfig() {
   const m = chrome.runtime.getManifest();
-  const client_id = m?.oauth2?.client_id;
-  const scopes    = m?.oauth2?.scopes || [];
+  const client_id     = m?.oauth2?.client_id;
+  const client_secret = m?.oauth2?.client_secret;
+  const scopes        = m?.oauth2?.scopes || [];
   if (!client_id || client_id.startsWith("PUT_YOUR_CLIENT_ID_HERE")) {
-    throw authError("manifest.oauth2.client_id is not set — see README step 3");
+    throw authError("manifest.oauth2.client_id is not set — see README step 4");
   }
-  return { client_id, scopes };
+  if (!client_secret || client_secret.startsWith("PUT_YOUR_CLIENT_SECRET_HERE")) {
+    throw authError("manifest.oauth2.client_secret is not set — see README step 4");
+  }
+  return { client_id, client_secret, scopes };
 }
 
 async function refreshAccessToken(refresh_token) {
-  const { client_id } = readManifestOAuthConfig();
+  const { client_id, client_secret } = readManifestOAuthConfig();
   const body = new URLSearchParams({
     grant_type: "refresh_token",
     client_id,
+    client_secret,
     refresh_token,
   });
   const res = await fetch(TOKEN_URL, {
@@ -214,10 +219,11 @@ async function refreshAccessToken(refresh_token) {
   return normalizeTokenResponse(await res.json());
 }
 
-async function exchangeCode({ client_id, redirect_uri, code, code_verifier }) {
+async function exchangeCode({ client_id, client_secret, redirect_uri, code, code_verifier }) {
   const body = new URLSearchParams({
     grant_type: "authorization_code",
     client_id,
+    client_secret,
     redirect_uri,
     code,
     code_verifier,

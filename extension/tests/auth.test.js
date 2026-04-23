@@ -154,8 +154,11 @@ describe("getToken — happy path (interactive)", () => {
   afterEach(() => { uninstallChromeShim(); delete globalThis.fetch; });
 
   test("runs full PKCE flow, stores access + refresh, returns access token", async () => {
-    fetchHandler = (url) => {
+    fetchHandler = (url, opts) => {
       assert.equal(url, "https://oauth2.googleapis.com/token");
+      assert.ok(opts.body.includes("client_secret=test-client-secret"),
+        "token exchange must include client_secret (Google Web app clients require it even with PKCE)");
+      assert.ok(opts.body.includes("code_verifier="), "PKCE verifier must be included");
       return makeJsonResponse(200, {
         access_token: "access-123",
         expires_in: 3600,
@@ -318,6 +321,7 @@ describe("getToken — error paths", () => {
       manifest: {
         oauth2: {
           client_id: "PUT_YOUR_CLIENT_ID_HERE.apps.googleusercontent.com",
+          client_secret: "anything",
           scopes: ["https://www.googleapis.com/auth/gmail.modify"],
         },
       },
@@ -327,6 +331,25 @@ describe("getToken — error paths", () => {
     await assert.rejects(
       () => getToken({ interactive: true }),
       (err) => err.kind === "auth" && /client_id/.test(err.message),
+    );
+  });
+
+  test("rejects with kind=auth when manifest client_secret is the placeholder", async () => {
+    installChromeShim({
+      seedAccessToken: false,
+      manifest: {
+        oauth2: {
+          client_id: "real.apps.googleusercontent.com",
+          client_secret: "PUT_YOUR_CLIENT_SECRET_HERE",
+          scopes: ["https://www.googleapis.com/auth/gmail.modify"],
+        },
+      },
+    });
+
+    const { getToken } = await freshAuthModule();
+    await assert.rejects(
+      () => getToken({ interactive: true }),
+      (err) => err.kind === "auth" && /client_secret/.test(err.message),
     );
   });
 });

@@ -36,12 +36,33 @@ Authorization Code + PKCE against a **Web application** OAuth client.
 - Redirect URI: `https://<extension-id>.chromiumapp.org/` — generated at
   runtime by `chrome.identity.getRedirectURL()`, registered manually on
   the OAuth client.
-- PKCE (S256 challenge) replaces the client secret: a Web application
-  client normally requires one, but the secret cannot be stored safely
-  in an unpacked extension. PKCE is the documented public-client
-  pattern.
+- PKCE (S256 challenge) protects the authorization code against
+  interception.
 - Refresh tokens (via `access_type=offline` + `prompt=consent`) give
   silent 1-hour refresh without re-prompting the user.
+
+### Why `client_secret` is in `manifest.json`
+
+Google's "Web application" client type requires `client_secret` at the
+token endpoint **even when PKCE is used** — the token endpoint returns
+`{ "error": "invalid_request", "error_description": "client_secret is
+missing." }` without it. Google does not offer a pure public-client
+OAuth type that both (a) accepts the `chromiumapp.org` redirect URI and
+(b) skips the secret check. The options on the table were:
+
+1. **Include `client_secret` in `manifest.json`** — chosen.
+2. Run a backend to proxy the token exchange — rejected (adds an
+   always-on server to a single-user local-first extension).
+3. Use `chrome.identity.getAuthToken` — not possible; that's the
+   deprecated flow this whole doc is about.
+
+The "secret" is not meaningfully secret for a Chromium extension —
+extension code is world-readable by anyone with the extension ID. The
+real security boundaries are PKCE (code interception) and the
+registered redirect URI (other apps can't use the credentials). Storing
+it in `manifest.json` (which is already gitignored — see
+[`oauth-client-id-handling.md`](./oauth-client-id-handling.md)) is
+operationally equivalent to any other embedded config.
 
 ## Token lifecycle
 

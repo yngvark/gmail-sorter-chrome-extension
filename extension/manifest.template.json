@@ -11,6 +11,7 @@
   ],
   "oauth2": {
     "client_id": "PUT_YOUR_CLIENT_ID_HERE.apps.googleusercontent.com",
+    "client_secret": "PUT_YOUR_CLIENT_SECRET_HERE",
     "scopes": ["https://www.googleapis.com/auth/gmail.modify"]
   },
   "action": { "default_title": "Open Gmail Sorter" },

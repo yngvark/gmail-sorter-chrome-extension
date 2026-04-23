@@ -8,6 +8,7 @@ export function installChromeShim({
   manifest = {
     oauth2: {
       client_id: "123-test.apps.googleusercontent.com",
+      client_secret: "test-client-secret",
       scopes: ["https://www.googleapis.com/auth/gmail.modify"],
     },
   },

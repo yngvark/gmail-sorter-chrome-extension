@@ -123,12 +123,28 @@ supported on Chrome apps`).
    ```
    replacing `<extension-id>` with the ID you copied in step 3. The
    trailing slash is required.
-7. Click **Create**. Copy the **Client ID** that appears.
-8. Paste the Client ID into
-   [`extension/manifest.json`](./manifest.json), replacing
-   `PUT_YOUR_CLIENT_ID_HERE.apps.googleusercontent.com`.
-9. Back on `chrome://extensions`, click the extension's **reload**
-   icon.
+7. Click **Create**. Google shows a **Client ID** and a
+   **Client secret**. Copy both.
+8. Open [`extension/manifest.json`](./manifest.json).
+9. Replace `PUT_YOUR_CLIENT_ID_HERE.apps.googleusercontent.com` with
+   the Client ID.
+10. Replace `PUT_YOUR_CLIENT_SECRET_HERE` with the Client secret.
+11. Save the file.
+12. Back on `chrome://extensions`, click the extension's **reload**
+    icon.
+
+> **About the client secret.** Google's "Web application" OAuth client
+> type requires `client_secret` at the token endpoint even when PKCE
+> is used. There is no pure-public-client type that works with
+> `chrome.identity.launchWebAuthFlow`, so we include the secret in
+> `manifest.json`. This isn't meaningfully secret for a Chromium
+> extension (extension code is readable by anyone who has the
+> extension), but:
+>
+> - `manifest.json` is gitignored — do **not** commit it.
+> - PKCE still protects the auth code from interception.
+> - The redirect URI restriction prevents other apps from using your
+>   credentials.
 
 ### 5 — Pin the extension ID (strongly recommended)
 
