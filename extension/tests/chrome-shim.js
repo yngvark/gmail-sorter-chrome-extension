@@ -3,13 +3,35 @@
 // exercise. Tests install it on globalThis.chrome before importing code
 // under test.
 
-export function installChromeShim({ token = "fake-token" } = {}) {
+export function installChromeShim({
+  token = "fake-token",
+  manifest = {
+    oauth2: {
+      client_id: "123-test.apps.googleusercontent.com",
+      scopes: ["https://www.googleapis.com/auth/gmail.modify"],
+    },
+  },
+  redirectUrl = "https://abc.chromiumapp.org/",
+  launchWebAuthFlowImpl = null,  // override per test
+  seedAccessToken = true,        // pre-seed a fresh auth.access in session storage
+} = {}) {
   const storage = {
     local:   new Map(),
     session: new Map(),
     sync:    new Map(),
   };
   const listeners = [];
+
+  // Seed a fresh access token so callers of auth.getToken() get a cached
+  // token back without touching the network. Tests that specifically
+  // exercise the auth flow pass `seedAccessToken: false`.
+  if (seedAccessToken) {
+    storage.session.set("auth.access", {
+      token,
+      expires_at: Date.now() + 60 * 60 * 1000,
+      scope: "",
+    });
+  }
 
   function areaApi(name) {
     return {
@@ -59,10 +81,23 @@ export function installChromeShim({ token = "fake-token" } = {}) {
       getAuthToken: (_opts, cb) => cb(token),
       removeCachedAuthToken: (_opts, cb) => cb(),
       clearAllCachedAuthTokens: (cb) => cb(),
+      getRedirectURL: () => redirectUrl,
+      launchWebAuthFlow: (opts, cb) => {
+        if (launchWebAuthFlowImpl) {
+          // Test-supplied impl may call cb synchronously or via setTimeout.
+          launchWebAuthFlowImpl(opts, cb);
+          return;
+        }
+        // Default: immediate success with a canned code + state pulled
+        // from the outgoing auth URL (so state-check passes).
+        const state = new URL(opts.url).searchParams.get("state");
+        cb(`${redirectUrl}?code=test-code&state=${state}`);
+      },
     },
     runtime: {
       id: "test-extension-id",
       lastError: null,
+      getManifest: () => manifest,
     },
   };
 

@@ -71,52 +71,82 @@ and Norwegian-friendly). Any instruction-tuned model with decent JSON
 compliance will work — change it in the options page. Smaller models
 classify faster; larger models are more accurate on edge cases.
 
-### 3 — Create a Google Cloud OAuth client ID
+### 3 — Load the extension and record its ID
 
-The extension needs an OAuth 2.0 client ID to ask Google for a Gmail
-access token on your behalf. Steps:
-
-1. [console.cloud.google.com](https://console.cloud.google.com/) → create
-   or pick a project.
-2. **APIs & Services → Enable APIs** → enable the **Gmail API**.
-3. **APIs & Services → OAuth consent screen** → pick **External** →
-   fill in the required fields.
-4. **Add yourself as a test user.** On the OAuth consent screen (or
-   under **Audience** in the newer UI), find the **Test users** section
-   → **Add users** → enter the Gmail address you'll sign in with → Save.
-   Without this, Google rejects the sign-in with
-   `Error 400: invalid_request` because the app is in Testing mode and
-   only listed test users are allowed.
-5. **APIs & Services → Credentials → Create credentials → OAuth client
-   ID**. Application type: **Chrome extension**. You will need the
-   extension's ID — see next step.
-
-### 4 — Load the extension and record its ID
+The extension's ID is derived from where Chrome/Brave first loaded it.
+You need that ID in the next step, so load the extension first.
 
 1. Copy the manifest template to its working location:
    ```bash
    cp extension/manifest.template.json extension/manifest.json
    ```
-   `manifest.json` is gitignored — it holds your personal OAuth Client ID
-   and must never be committed. `manifest.template.json` is the version
-   checked into git (with a `PUT_YOUR_CLIENT_ID_HERE` placeholder).
-2. `chrome://extensions` (or `brave://extensions`) → enable **Developer
-   mode** (top right).
-3. **Load unpacked** → select this `extension/` directory.
-4. Copy the extension ID shown under the extension's name.
-5. Paste it into your OAuth client ID in Google Cloud (Application ID
-   field).
-6. Copy the OAuth **Client ID** from Google Cloud into
-   [`manifest.json`](./manifest.json) — replace
+   `manifest.json` is gitignored — it holds your personal OAuth Client
+   ID and must never be committed. `manifest.template.json` is the
+   version checked into git (with a `PUT_YOUR_CLIENT_ID_HERE`
+   placeholder).
+2. Open `chrome://extensions` (or `brave://extensions`).
+3. Enable **Developer mode** (top-right toggle).
+4. Click **Load unpacked** → select this `extension/` directory.
+5. Copy the extension ID shown under the extension's name. You'll
+   paste it into Google Cloud in the next step.
+
+> **Tip:** This ID changes if you ever reload from a different path or
+> machine, which will break your Google OAuth redirect URI. If you plan
+> to keep this installed long-term, read **Pin the extension ID across
+> reloads** at the bottom of this section and do it now, before
+> continuing to step 4.
+
+### 4 — Create a Google Cloud OAuth client ID
+
+The extension uses OAuth 2.0 Authorization Code + PKCE via
+`chrome.identity.launchWebAuthFlow`. This requires a **Web application**
+OAuth client (not "Chrome Extension" — Google deprecated that flow and
+it now returns `Error 400: invalid_request — Custom URI scheme is not
+supported on Chrome apps`).
+
+1. Go to [console.cloud.google.com](https://console.cloud.google.com/)
+   and create or pick a project.
+2. **APIs & Services → Enable APIs** → enable the **Gmail API**.
+3. **APIs & Services → OAuth consent screen** → pick **External** →
+   fill in the required fields.
+4. **Add yourself as a test user.** On the OAuth consent screen (or
+   under **Audience** in the newer UI), find the **Test users**
+   section → **Add users** → enter the Gmail address you'll sign in
+   with → Save. Without this, Google rejects the sign-in with
+   `Error 400: invalid_request` because the app is in Testing mode
+   and only listed test users are allowed.
+5. **APIs & Services → Credentials → Create credentials → OAuth client
+   ID**. Application type: **Web application**. Give it any name.
+6. Under **Authorized redirect URIs**, add exactly:
+   ```
+   https://<extension-id>.chromiumapp.org/
+   ```
+   replacing `<extension-id>` with the ID you copied in step 3. The
+   trailing slash is required.
+7. Click **Create**. Copy the **Client ID** that appears.
+8. Paste the Client ID into
+   [`extension/manifest.json`](./manifest.json), replacing
    `PUT_YOUR_CLIENT_ID_HERE.apps.googleusercontent.com`.
-7. Back on `chrome://extensions`, click the extension's **reload** icon.
+9. Back on `chrome://extensions`, click the extension's **reload**
+   icon.
 
-### (Optional) Pin the extension ID across reloads
+### (Strongly recommended) Pin the extension ID across reloads
 
-Unpacked extensions get a fresh ID every time they're loaded on a new
-machine (derived from the install path). To pin the ID so you don't have
-to update the OAuth client when switching machines, generate a key pair
-and add the public key to `manifest.json` as `"key"`. See
+Unpacked extensions get a fresh ID every time they're loaded from a
+different path or machine. Because the redirect URI above is derived
+from the extension ID, every such change invalidates your Google OAuth
+redirect URI and you have to re-edit it in Google Cloud.
+
+To pin the ID, generate a key pair and add the public key as
+`"key"` in `manifest.json`:
+
+```bash
+openssl genrsa 2048 | openssl rsa -pubout -outform DER | base64 -w0
+```
+
+Paste the output as `"key": "..."` at the top level of `manifest.json`.
+Reload the extension once — the ID shown in `chrome://extensions` is now
+stable across reloads and machines. See
 [Keep consistent extension ID](https://developer.chrome.com/docs/extensions/reference/manifest/key).
 
 ## Using it

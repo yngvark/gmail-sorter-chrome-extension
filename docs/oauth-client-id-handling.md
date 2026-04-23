@@ -2,7 +2,8 @@
 
 ## Context
 
-The extension authenticates to Gmail via `chrome.identity.getAuthToken`,
+The extension authenticates to Gmail via `chrome.identity.launchWebAuthFlow`
+(see [`oauth-launch-web-auth-flow.md`](./oauth-launch-web-auth-flow.md)),
 which reads `oauth2.client_id` from `manifest.json`. Each user of the
 repo creates their own Google Cloud OAuth client (tied to their own
 extension ID), so the Client ID is per-machine, not per-repo.
@@ -43,9 +44,15 @@ Client IDs cannot be accidentally committed.
 - **`git update-index --skip-worktree`** on the tracked file. Rejected:
   per-clone, doesn't survive re-clone, silently breaks on upstream
   changes to the file, easy to forget.
-- **Runtime Client ID via `chrome.identity.launchWebAuthFlow`**, with
-  the ID entered in the options page and read from `chrome.storage`.
-  Rejected for now: bigger code change, and `getAuthToken` is the
-  friendlier flow for Chrome extensions (native Google account picker,
-  no redirect URI to register). Can be revisited if the Client ID
-  needs to be runtime-configurable for other reasons.
+- **Runtime Client ID in `chrome.storage`** (entered via the options
+  page). Rejected: the Client ID is not a secret, `manifest.json` is a
+  single well-known place to put it, and moving it to storage adds UI
+  surface area for no gain at the scale this extension targets.
+
+## Related history
+
+The extension has since moved off `chrome.identity.getAuthToken` to
+`chrome.identity.launchWebAuthFlow` — not because of how the Client ID
+is stored, but because Google deprecated the older flow. See
+[`oauth-launch-web-auth-flow.md`](./oauth-launch-web-auth-flow.md). The
+split-manifest pattern here is unchanged by that switch.
