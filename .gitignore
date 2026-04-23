@@ -7,3 +7,6 @@ node_modules/
 dist/
 test-results/
 playwright-report/
+
+# Local manifest has the real OAuth Client ID — copied from manifest.template.json
+extension/manifest.json

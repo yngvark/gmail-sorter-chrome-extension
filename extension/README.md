@@ -87,16 +87,23 @@ access token on your behalf. Steps:
 
 ### 4 — Load the extension and record its ID
 
-1. `chrome://extensions` (or `brave://extensions`) → enable **Developer
+1. Copy the manifest template to its working location:
+   ```bash
+   cp extension/manifest.template.json extension/manifest.json
+   ```
+   `manifest.json` is gitignored — it holds your personal OAuth Client ID
+   and must never be committed. `manifest.template.json` is the version
+   checked into git (with a `PUT_YOUR_CLIENT_ID_HERE` placeholder).
+2. `chrome://extensions` (or `brave://extensions`) → enable **Developer
    mode** (top right).
-2. **Load unpacked** → select this `extension/` directory.
-3. Copy the extension ID shown under the extension's name.
-4. Paste it into your OAuth client ID in Google Cloud (Application ID
+3. **Load unpacked** → select this `extension/` directory.
+4. Copy the extension ID shown under the extension's name.
+5. Paste it into your OAuth client ID in Google Cloud (Application ID
    field).
-5. Copy the OAuth **Client ID** from Google Cloud into
+6. Copy the OAuth **Client ID** from Google Cloud into
    [`manifest.json`](./manifest.json) — replace
    `PUT_YOUR_CLIENT_ID_HERE.apps.googleusercontent.com`.
-6. Back on `chrome://extensions`, click the extension's **reload** icon.
+7. Back on `chrome://extensions`, click the extension's **reload** icon.
 
 ### (Optional) Pin the extension ID across reloads
 
