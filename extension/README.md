@@ -79,9 +79,15 @@ access token on your behalf. Steps:
 1. [console.cloud.google.com](https://console.cloud.google.com/) → create
    or pick a project.
 2. **APIs & Services → Enable APIs** → enable the **Gmail API**.
-3. **APIs & Services → OAuth consent screen**. Pick **External**. Fill in
-   the required fields. Add yourself as a test user.
-4. **APIs & Services → Credentials → Create credentials → OAuth client
+3. **APIs & Services → OAuth consent screen** → pick **External** →
+   fill in the required fields.
+4. **Add yourself as a test user.** On the OAuth consent screen (or
+   under **Audience** in the newer UI), find the **Test users** section
+   → **Add users** → enter the Gmail address you'll sign in with → Save.
+   Without this, Google rejects the sign-in with
+   `Error 400: invalid_request` because the app is in Testing mode and
+   only listed test users are allowed.
+5. **APIs & Services → Credentials → Create credentials → OAuth client
    ID**. Application type: **Chrome extension**. You will need the
    extension's ID — see next step.
 
