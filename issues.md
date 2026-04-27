@@ -125,6 +125,8 @@ hidden when empty.
 
 ## 4. [LOW] Settings rejects the default num_ctx (64000) as invalid
 
+**Status:** Fixed in 3ef04b2
+
 **Symptom (reported):** Editing the context-window field in settings shows
 a Brave/Chrome HTML5 validation popup: "Please enter a valid value. The two
 nearest valid values are 63488 and 64512. The prefilled value is 64000."
