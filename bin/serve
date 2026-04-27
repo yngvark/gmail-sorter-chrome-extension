@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# Serve the extension/ directory over HTTP for browser-based UI verification
+# (Playwright file:// is blocked, and ES module imports need an HTTP origin).
+#
+# The server runs in the background; PID is stored in .scratch/serve.pid.
+# Re-running starts a fresh server (any prior instance is stopped first).
+
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PID_FILE="$REPO_ROOT/.scratch/serve.pid"
+PORT_FILE="$REPO_ROOT/.scratch/serve.port"
+SERVE_DIR="$REPO_ROOT/extension"
+
+print_help() {
+  cat <<'EOF'
+Usage:
+  bin/serve              start server on http://localhost:8765
+  bin/serve <port>       start server on a custom port
+  bin/serve --stop       stop any server started by this script
+  bin/serve --status     show whether a server is running, and on which port
+  bin/serve -h, --help   show this help
+
+Notes:
+  - Serves the extension/ directory at the repo root.
+  - PID/port files live in .scratch/serve.{pid,port}.
+  - Re-running the start command stops any prior instance first.
+EOF
+}
+
+stop_existing() {
+  if [[ -f "$PID_FILE" ]]; then
+    local pid
+    pid="$(cat "$PID_FILE")"
+    if kill -0 "$pid" 2>/dev/null; then
+      kill "$pid" 2>/dev/null || true
+    fi
+    rm -f "$PID_FILE" "$PORT_FILE"
+  fi
+}
+
+case "${1:-}" in
+  -h|--help)
+    print_help
+    exit 0
+    ;;
+  --stop)
+    stop_existing
+    echo "stopped"
+    exit 0
+    ;;
+  --status)
+    if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+      echo "running on http://localhost:$(cat "$PORT_FILE") (pid $(cat "$PID_FILE"))"
+    else
+      echo "not running"
+    fi
+    exit 0
+    ;;
+esac
+
+PORT="${1:-8765}"
+
+mkdir -p "$REPO_ROOT/.scratch"
+stop_existing
+
+cd "$SERVE_DIR"
+nohup python3 -m http.server "$PORT" >/dev/null 2>&1 &
+echo $! > "$PID_FILE"
+echo "$PORT" > "$PORT_FILE"
+
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+  if curl -sf -o /dev/null "http://localhost:$PORT/"; then
+    echo "serving $SERVE_DIR at http://localhost:$PORT (pid $(cat "$PID_FILE"))"
+    exit 0
+  fi
+  sleep 0.1
+done
+
+echo "failed to start server on port $PORT" >&2
+stop_existing
+exit 1
