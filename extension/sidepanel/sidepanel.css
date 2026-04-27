@@ -258,6 +258,7 @@ body {
   text-transform: uppercase;
   color: var(--gold);
 }
+.dry-run-pill[hidden] { display: none; }
 
 .dry-run-pill__hint {
   font-family: var(--serif-body);
@@ -634,6 +635,7 @@ body {
   font-family: var(--mono);
   font-size: 11px;
 }
+.dev-tools[hidden] { display: none; }
 
 .dev-btn {
   font-family: var(--mono);
