@@ -97,6 +97,8 @@ the most-clicked button do the right thing without reading docs.
 
 ## 3. [MEDIUM] No always-visible "Fetch inbox" button
 
+**Status:** Fixed in 38181df
+
 **Symptom (reported):** The user wants a Fetch button visible in the side
 panel even outside dry-run mode, so they can fetch without applying any
 changes. They thought it was tied to dry-run / debug mode and got confused
