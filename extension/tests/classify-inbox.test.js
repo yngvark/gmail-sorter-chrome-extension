@@ -23,6 +23,80 @@ function seedInbox(storage, rows) {
   storage.local.set("inboxEmails", byId);
 }
 
+// Build a fetch handler that routes Gmail metadata requests to canned
+// rows and forwards everything else (Ollama) to `ollamaHandler`.
+//
+// classifyInbox now always re-fetches the inbox before classifying, so
+// every test must answer `listInboxIds` (returns ids) and `getMessageMetadata`
+// (returns from/subject) for the rows under test. We feed the metadata fetch
+// the same `from`/`subject` the test seeded so the Ollama prompt is stable.
+function gmailRouter(rows, ollamaHandler) {
+  const byId = {};
+  for (const r of rows) byId[r.id] = r;
+
+  return async (url, opts) => {
+    const u = String(url);
+
+    // listInboxIds: GET /gmail/v1/users/me/messages?...
+    if (u.includes("/gmail/v1/users/me/messages?")) {
+      return new Response(
+        JSON.stringify({ messages: rows.map((r) => ({ id: r.id })) }),
+        { status: 200 },
+      );
+    }
+
+    // getMessageMetadata: GET /gmail/v1/users/me/messages/<id>?format=metadata
+    const metaMatch = u.match(/\/gmail\/v1\/users\/me\/messages\/([^/?]+)\?/);
+    if (metaMatch && u.includes("format=metadata")) {
+      const id = decodeURIComponent(metaMatch[1]);
+      const r = byId[id];
+      if (!r) return new Response("{}", { status: 404 });
+      return new Response(
+        JSON.stringify({
+          id: r.id,
+          threadId: r.id,
+          labelIds: ["INBOX"],
+          snippet: "",
+          payload: {
+            headers: [
+              { name: "From", value: r.from },
+              { name: "Subject", value: r.subject },
+            ],
+          },
+        }),
+        { status: 200 },
+      );
+    }
+
+    // getMessageFull: GET /gmail/v1/users/me/messages/<id>?format=full
+    if (metaMatch && u.includes("format=full")) {
+      const id = decodeURIComponent(metaMatch[1]);
+      const r = byId[id];
+      if (!r) return new Response("{}", { status: 404 });
+      return new Response(
+        JSON.stringify({
+          id: r.id,
+          threadId: r.id,
+          labelIds: ["INBOX"],
+          snippet: "",
+          payload: {
+            mimeType: "text/plain",
+            headers: [
+              { name: "From", value: r.from },
+              { name: "Subject", value: r.subject },
+            ],
+            body: { data: Buffer.from(r.body || "").toString("base64url") },
+          },
+        }),
+        { status: 200 },
+      );
+    }
+
+    // Anything else → Ollama handler (or chat completions endpoint).
+    return ollamaHandler(url, opts);
+  };
+}
+
 function mockFetch(handler) { globalThis.fetch = handler; }
 
 describe("pipeline.classifyInbox", () => {
@@ -41,20 +115,21 @@ describe("pipeline.classifyInbox", () => {
   });
 
   test("writes suggestions, progress flag flips classifying to false on finish", async () => {
-    seedInbox(shim.storage, [
+    const rows = [
       { id: "m1", from: "Stripe", subject: "Receipt", body: "x" },
       { id: "m2", from: "Sam",    subject: "Coffee?",  body: "y" },
-    ]);
+    ];
+    seedInbox(shim.storage, rows);
 
     // Ollama mock: m1 → Archive, m2 → Star. Route by request body.
-    mockFetch(async (url, opts) => {
+    mockFetch(gmailRouter(rows, async (_url, opts) => {
       const msg = JSON.parse(opts.body).messages.find((m) => m.role === "user");
       const action = msg.content.includes("Stripe") ? "Archive" : "Star";
       return new Response(
         JSON.stringify({ message: { content: JSON.stringify({ action }) } }),
         { status: 200 },
       );
-    });
+    }));
 
     const result = await pipeline.classifyInbox();
     assert.equal(result.started, true);
@@ -75,13 +150,15 @@ describe("pipeline.classifyInbox", () => {
   });
 
   test("Leave alone does not create a suggestion", async () => {
-    seedInbox(shim.storage, [
+    const rows = [
       { id: "m1", from: "Calendar", subject: "Reminder", body: "x" },
-    ]);
-    mockFetch(async () => new Response(
+    ];
+    seedInbox(shim.storage, rows);
+
+    mockFetch(gmailRouter(rows, async () => new Response(
       JSON.stringify({ message: { content: JSON.stringify({ action: "Leave alone" }) } }),
       { status: 200 },
-    ));
+    )));
 
     await pipeline.classifyInbox();
     const suggestions = await store.getSuggestions();
@@ -89,11 +166,13 @@ describe("pipeline.classifyInbox", () => {
   });
 
   test("CORS error aborts the run and writes session.lastError", async () => {
-    seedInbox(shim.storage, [
+    const rows = [
       { id: "m1", from: "a", subject: "b", body: "c" },
       { id: "m2", from: "d", subject: "e", body: "f" },
-    ]);
-    mockFetch(async () => { throw new TypeError("Failed to fetch"); });
+    ];
+    seedInbox(shim.storage, rows);
+
+    mockFetch(gmailRouter(rows, async () => { throw new TypeError("Failed to fetch"); }));
 
     const result = await pipeline.classifyInbox();
     assert.equal(result.started, true);
@@ -109,22 +188,23 @@ describe("pipeline.classifyInbox", () => {
   });
 
   test("skips already-classified emails (idempotent re-run)", async () => {
-    seedInbox(shim.storage, [
+    const rows = [
       { id: "m1", from: "a", subject: "b", body: "c" },
       { id: "m2", from: "d", subject: "e", body: "f" },
-    ]);
+    ];
+    seedInbox(shim.storage, rows);
     shim.storage.local.set("suggestions", {
       m1: { emailId: "m1", from: "a", subject: "b", action: "Star" },
     });
 
     let callCount = 0;
-    mockFetch(async () => {
+    mockFetch(gmailRouter(rows, async () => {
       callCount++;
       return new Response(
         JSON.stringify({ message: { content: JSON.stringify({ action: "Archive" }) } }),
         { status: 200 },
       );
-    });
+    }));
 
     const result = await pipeline.classifyInbox();
     assert.equal(result.total, 1, "only m2 should be in todo");
@@ -135,10 +215,50 @@ describe("pipeline.classifyInbox", () => {
     assert.equal(suggestions.m2.action, "Archive", "new suggestion added");
   });
 
+  test("always re-fetches inbox even when storage map is non-empty", async () => {
+    // Pre-seed with a stale row that is NOT in the canonical Gmail response.
+    // After classifyInbox runs, fetchInbox should have replaced inbox with
+    // the freshly-listed rows, so the stale id must be gone.
+    seedInbox(shim.storage, [
+      { id: "stale", from: "Old", subject: "Gone", body: "z" },
+    ]);
+
+    const fresh = [
+      { id: "m1", from: "Fresh", subject: "Hi", body: "x" },
+    ];
+
+    let listInboxCalls = 0;
+    mockFetch(async (url, opts) => {
+      const u = String(url);
+      if (u.includes("/gmail/v1/users/me/messages?")) {
+        listInboxCalls++;
+        return new Response(
+          JSON.stringify({ messages: fresh.map((r) => ({ id: r.id })) }),
+          { status: 200 },
+        );
+      }
+      // Delegate metadata / Ollama via the shared router.
+      return gmailRouter(fresh, async () => new Response(
+        JSON.stringify({ message: { content: JSON.stringify({ action: "Archive" }) } }),
+        { status: 200 },
+      ))(url, opts);
+    });
+
+    const result = await pipeline.classifyInbox();
+    assert.equal(listInboxCalls, 1, "fetchInbox must run unconditionally");
+    assert.equal(result.total, 1, "only the freshly-fetched row is classified");
+
+    const inbox = await store.getInbox();
+    assert.deepEqual(Object.keys(inbox).sort(), ["m1"]);
+    assert.equal(inbox.stale, undefined, "stale row replaced by fresh fetch");
+  });
+
   test("double-invocation while in flight returns already-running", async () => {
-    seedInbox(shim.storage, [{ id: "m1", from: "x", subject: "y", body: "z" }]);
-    let resolveFetch;
-    mockFetch(() => new Promise((r) => { resolveFetch = r; }));
+    const rows = [{ id: "m1", from: "x", subject: "y", body: "z" }];
+    seedInbox(shim.storage, rows);
+
+    let resolveOllama;
+    mockFetch(gmailRouter(rows, () => new Promise((r) => { resolveOllama = r; })));
 
     const a = pipeline.classifyInbox();
     // Give the first call time to reach the in-flight guard
@@ -147,7 +267,7 @@ describe("pipeline.classifyInbox", () => {
     assert.equal(b.started, false);
     assert.equal(b.reason, "already-running");
 
-    resolveFetch(new Response(
+    resolveOllama(new Response(
       JSON.stringify({ message: { content: JSON.stringify({ action: "Archive" }) } }),
       { status: 200 },
     ));

@@ -88,11 +88,12 @@ export async function classifyInbox() {
     const settings = await store.getSettings();
     await store.clearError();
 
-    let inbox = await store.getInbox();
-    if (Object.keys(inbox).length === 0) {
-      await fetchInbox({ maxResults: settings.maxInbox });
-      inbox = await store.getInbox();
-    }
+    // Always re-fetch so the button label "Classify inbox" matches what the
+    // user expects: a fresh look at Gmail. The metadata endpoint is cheap;
+    // matching the label is worth the round-trip. The `existing` filter
+    // below still skips already-classified emails.
+    await fetchInbox({ maxResults: settings.maxInbox });
+    const inbox = await store.getInbox();
 
     const existing = await store.getSuggestions();
     const todo = Object.values(inbox).filter((e) => !existing[e.id]);
