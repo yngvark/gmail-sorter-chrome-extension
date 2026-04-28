@@ -54,6 +54,8 @@ a "diagnostic mode" first and have the user reproduce while it's on.
 
 ## 2. [MEDIUM] "Classify inbox" silently does nothing on subsequent clicks
 
+**Status:** Fixed in 550bdb6
+
 **Symptom (reported):** The user clicks "Classify inbox" and no new emails
 are fetched; nothing visible happens. Unclear what the button is supposed to
 do.
