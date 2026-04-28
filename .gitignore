@@ -2,6 +2,7 @@
 .playwright-cli/
 .scratch/
 .claude/
+one-shot-log/
 prototype/*.png
 node_modules/
 dist/

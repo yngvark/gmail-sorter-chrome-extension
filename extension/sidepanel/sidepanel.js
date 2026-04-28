@@ -16,11 +16,11 @@ const FADE_DURATION_MS = 200;
 const APPLY_ALL_STAGGER_MS = 250;
 
 const PLACEHOLDER_INBOX = [
-  { id: "i1", from: "GitHub",   subject: "[repo] PR #42 opened" },
-  { id: "i2", from: "Substack", subject: "This week in AI" },
-  { id: "i3", from: "Sam",      subject: "Coffee next week?" },
-  { id: "i4", from: "Calendar", subject: "Reminder: 1:1" },
-  { id: "i5", from: "Amazon",   subject: "Your order shipped" },
+  { id: "i1", from: "GitHub",   subject: "[repo] PR #42 opened",  internalDate: 5 },
+  { id: "i2", from: "Substack", subject: "This week in AI",       internalDate: 4 },
+  { id: "i3", from: "Sam",      subject: "Coffee next week?",     internalDate: 3 },
+  { id: "i4", from: "Calendar", subject: "Reminder: 1:1",         internalDate: 2 },
+  { id: "i5", from: "Amazon",   subject: "Your order shipped",    internalDate: 1 },
 ];
 
 const PLACEHOLDER_SUGGESTIONS = [
@@ -70,8 +70,14 @@ function sortedSuggestions() {
   return Object.values(state.suggestions);
 }
 
+// Match Gmail's own ordering: newest received first. Gmail's `internalDate`
+// is the millis-since-epoch when Gmail received the message — the same value
+// the Gmail UI sorts by. Without an explicit sort, iteration order is
+// whatever survives the chrome.storage roundtrip and isn't guaranteed.
 function sortedInbox() {
-  return Object.values(state.inbox);
+  return Object.values(state.inbox).sort(
+    (a, b) => (b.internalDate || 0) - (a.internalDate || 0),
+  );
 }
 
 // ------------------------ DOM refs ------------------------

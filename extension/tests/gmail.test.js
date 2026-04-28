@@ -197,4 +197,37 @@ describe("Gmail fetch endpoints", () => {
       },
     );
   });
+
+  test("getMessageMetadata returns internalDate as a number", async () => {
+    mockFetch(async () => new Response(
+      JSON.stringify({
+        id: "m1",
+        threadId: "t1",
+        labelIds: ["INBOX"],
+        snippet: "hi",
+        internalDate: "1700000000000",
+        payload: { headers: [
+          { name: "From", value: "a@b.c" },
+          { name: "Subject", value: "Hello" },
+        ] },
+      }),
+      { status: 200 },
+    ));
+    const r = await getMessageMetadata("tok", "m1");
+    assert.equal(r.internalDate, 1700000000000);
+    assert.equal(typeof r.internalDate, "number");
+  });
+
+  test("getMessageMetadata defaults missing internalDate to 0", async () => {
+    mockFetch(async () => new Response(
+      JSON.stringify({
+        id: "m1",
+        threadId: "t1",
+        payload: { headers: [] },
+      }),
+      { status: 200 },
+    ));
+    const r = await getMessageMetadata("tok", "m1");
+    assert.equal(r.internalDate, 0);
+  });
 });

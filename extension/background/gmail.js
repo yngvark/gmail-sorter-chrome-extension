@@ -69,6 +69,7 @@ export async function getMessageMetadata(token, id) {
     snippet: m.snippet || "",
     from:    headerValue(m, "From"),
     subject: headerValue(m, "Subject"),
+    internalDate: parseInternalDate(m.internalDate),
   };
 }
 
@@ -84,7 +85,15 @@ export async function getMessageFull(token, id) {
     from:    headerValue(m, "From"),
     subject: headerValue(m, "Subject"),
     body:    extractBody(m.payload),
+    internalDate: parseInternalDate(m.internalDate),
   };
+}
+
+// Gmail returns internalDate as a string of millis-since-epoch. Coerce to
+// number so callers can sort numerically. Missing/invalid → 0 (sorts last).
+function parseInternalDate(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
 }
 
 export async function modifyLabels(token, id, { add = [], remove = [] } = {}) {
