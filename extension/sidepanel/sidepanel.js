@@ -37,6 +37,7 @@ const state = {
   classifyProgress: 0,
   classifyTotal: 0,
   hasClassified: !isExtension,
+  fetching: false,
   applyingAll: false,
   applyProgress: 0,
   applyTotal: 0,
@@ -62,6 +63,7 @@ function sortedInbox() {
 // ------------------------ DOM refs ------------------------
 
 const els = {
+  fetchBtn:       document.getElementById("fetch-btn"),
   classifyBtn:    document.getElementById("classify-btn"),
   classifyCount:  document.getElementById("classify-count"),
   progress:       document.getElementById("progress"),
@@ -92,6 +94,17 @@ const els = {
 };
 
 // ------------------------ Rendering ------------------------
+
+function renderFetchButton() {
+  const label = els.fetchBtn.querySelector(".btn__label");
+  if (state.fetching) {
+    label.textContent = "Fetching";
+    els.fetchBtn.disabled = true;
+  } else {
+    label.textContent = "Fetch inbox";
+    els.fetchBtn.disabled = false;
+  }
+}
 
 function renderClassifyButton() {
   const label = els.classifyBtn.querySelector(".btn__label");
@@ -291,6 +304,7 @@ function renderDryRunPill() {
 }
 
 function render() {
+  renderFetchButton();
   renderClassifyButton();
   renderInbox();
   renderSuggestions();
@@ -414,6 +428,45 @@ function simulateClassify() {
   setTimeout(step, 200);
 }
 
+// Placeholder fetch used outside the extension so the button is testable
+// during local UI iteration. Mirrors `simulateClassify`'s pattern.
+function simulateFetch() {
+  if (state.fetching) return;
+  const demoInbox = [
+    { id: "i1", from: "GitHub",   subject: "[repo] PR #42 opened" },
+    { id: "i2", from: "Substack", subject: "This week in AI" },
+    { id: "i3", from: "Sam",      subject: "Coffee next week?" },
+    { id: "i4", from: "Calendar", subject: "Reminder: 1:1" },
+    { id: "i5", from: "Amazon",   subject: "Your order shipped" },
+  ];
+
+  state.fetching = true;
+  render();
+  setTimeout(() => {
+    const byId = {};
+    for (const r of demoInbox) byId[r.id] = r;
+    state.inbox = byId;
+    state.fetching = false;
+    render();
+  }, 400);
+}
+
+async function handleFetchClick() {
+  if (!isExtension) { simulateFetch(); return; }
+  if (state.fetching) return;
+  try {
+    state.fetching = true;
+    renderFetchButton();
+    const res = await chrome.runtime.sendMessage({ type: MSG.FETCH_INBOX });
+    if (!res?.ok) console.error("fetch failed", res);
+  } catch (err) {
+    console.error(err);
+  } finally {
+    state.fetching = false;
+    renderFetchButton();
+  }
+}
+
 async function handleClassifyClick() {
   if (!isExtension) { simulateClassify(); return; }
   try {
@@ -453,6 +506,7 @@ document.addEventListener("click", (e) => {
 
 // ------------------------ Boot ------------------------
 
+els.fetchBtn.addEventListener("click", handleFetchClick);
 els.classifyBtn.addEventListener("click", handleClassifyClick);
 els.applyAllBtn.addEventListener("click", applyAll);
 els.optionsLink.addEventListener("click", (e) => {
