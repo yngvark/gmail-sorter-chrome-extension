@@ -154,6 +154,77 @@ describe("pipeline.applyOne", () => {
     assert.equal(r.ok, false);
     assert.equal(r.error.kind, "missing");
   });
+
+  // ------------------ Action-string hardening (issue #1) ------------------
+
+  test("Archive with trailing whitespace still hits Gmail (trim normalises)", async () => {
+    seedSuggestion(shim.storage, { emailId: "m1", from: "a", subject: "b", action: "Archive " });
+    const r = await pipeline.applyOne("m1");
+    assert.equal(r.ok, true);
+    assert.equal(fetchCalls.length, 1);
+    assert.match(fetchCalls[0].url, /messages\/m1\/modify$/);
+    assert.deepEqual(JSON.parse(fetchCalls[0].opts.body), {
+      addLabelIds: [],
+      removeLabelIds: ["INBOX"],
+    });
+    // Suggestion + inbox row cleared.
+    assert.deepEqual(await store.getSuggestions(), {});
+  });
+
+  test("Wrong-case 'ARCHIVE' surfaces as unmapped — no Gmail call, suggestion preserved, toast written", async () => {
+    seedSuggestion(shim.storage, { emailId: "m1", from: "a", subject: "b", action: "ARCHIVE" });
+    const r = await pipeline.applyOne("m1");
+
+    assert.equal(r.ok, false);
+    assert.equal(r.error.kind, "unmapped-action");
+    assert.match(r.error.message, /Unknown action: ARCHIVE/);
+
+    // No Gmail call was made — that was the silent-failure foot-gun.
+    assert.equal(fetchCalls.length, 0);
+
+    // Suggestion is preserved so the user can see it / retry.
+    const remaining = await store.getSuggestions();
+    assert.ok(remaining.m1, "suggestion must NOT be deleted on unmapped action");
+    assert.equal(remaining.m1.action, "ARCHIVE");
+
+    // Visible toast: APPLY_ERRORS got populated.
+    const errors = await store.get("local", "applyErrors", {});
+    assert.ok(errors.m1, "applyErrors should carry the unmapped failure");
+    assert.match(errors.m1.message, /Unknown action: ARCHIVE/);
+  });
+
+  test("Unmapped action emits the smoking-gun diagnostic event", async () => {
+    // Diagnostics is off by default — turn it on so appendDiag actually writes.
+    shim.storage.sync.set("settings", { diagnostics: true });
+    seedSuggestion(shim.storage, { emailId: "m1", from: "a", subject: "b", action: "archive" });
+
+    await pipeline.applyOne("m1");
+
+    const log = await store.getDiag();
+    const unmapped = log.filter((e) => e.kind === "apply_one.unmapped_action");
+    assert.equal(unmapped.length, 1);
+    assert.equal(unmapped[0].emailId, "m1");
+    assert.equal(unmapped[0].action, "archive");
+  });
+
+  test("Archive when modifyLabels throws: APPLY_ERRORS populated, suggestion preserved", async () => {
+    seedSuggestion(shim.storage, { emailId: "m1", from: "a", subject: "b", action: "Archive" });
+    globalThis.fetch = async () => new Response(
+      JSON.stringify({ error: { message: "server boom" } }),
+      { status: 500 },
+    );
+
+    const r = await pipeline.applyOne("m1");
+    assert.equal(r.ok, false);
+    assert.equal(r.error.kind, "gmail");
+
+    const errors = await store.get("local", "applyErrors", {});
+    assert.ok(errors.m1, "applyErrors must record the gmail failure");
+    assert.match(errors.m1.message, /500/);
+
+    // Suggestion preserved so retry is possible.
+    assert.ok((await store.getSuggestions()).m1);
+  });
 });
 
 describe("pipeline.applyAll", () => {

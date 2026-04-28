@@ -75,7 +75,12 @@ export async function classifyEmail({ settings, email }) {
 // ------------------------ Action → Gmail diff ------------------------
 
 export function actionToLabelDiff(action, { followUpLabelId } = {}) {
-  switch (action) {
+  // Trim incoming action so trivial whitespace from the model (e.g. "Archive ")
+  // doesn't fall through to the unmapped branch. We deliberately do NOT
+  // lowercase: case mismatches indicate a real model bug and we want them
+  // surfaced as `unmapped` rather than silently coerced.
+  const normalized = String(action ?? "").trim();
+  switch (normalized) {
     case "Star":             return { add: ["STARRED"],         remove: ["INBOX"] };
     case "Archive":          return { add: [],                   remove: ["INBOX"] };
     case "Mark read":        return { add: [],                   remove: ["UNREAD"] };
@@ -85,6 +90,9 @@ export function actionToLabelDiff(action, { followUpLabelId } = {}) {
       needsFollowUpLabel: !followUpLabelId,
     };
     case "Leave alone":      return { add: [], remove: [], noop: true };
-    default:                 return { add: [], remove: [], noop: true };
+    // Unmapped: distinguishable from "Leave alone" via `unmapped: true` so
+    // pipeline.applyOne can refuse to silently delete the suggestion. The
+    // diagnostic event in pipeline.js surfaces the offending action string.
+    default:                 return { add: [], remove: [], noop: true, unmapped: true };
   }
 }

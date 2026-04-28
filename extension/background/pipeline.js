@@ -230,15 +230,25 @@ export async function applyOne(emailId) {
 
   let diff = actionToLabelDiff(sugg.action);
 
-  // Leave alone just clears the suggestion locally; nothing to do at Gmail.
+  // Unmapped action: the suggestion's action string didn't match any case
+  // in actionToLabelDiff (typo, wrong case, garbled model output). DO NOT
+  // delete the suggestion locally — that's the "Archive does nothing" foot-
+  // gun where the row vanishes without Gmail being touched. Instead surface
+  // a toast and leave the suggestion visible so something else can resolve
+  // it (model retry, manual triage, code fix).
+  if (diff.unmapped) {
+    await store.appendDiag({ kind: "apply_one.unmapped_action", emailId, action: sugg.action });
+    const result = {
+      ok: false,
+      error: { kind: "unmapped-action", message: `Unknown action: ${sugg.action}` },
+    };
+    await emitApplyOneFailure(emailId, sugg.action, result);
+    return result;
+  }
+
+  // Leave alone (or any other intentional noop) just clears the suggestion
+  // locally; nothing to do at Gmail.
   if (diff.noop) {
-    // If the action wasn't "Leave alone" but still mapped to noop, the
-    // action string didn't match any case in actionToLabelDiff — this is
-    // the smoking-gun for the "Archive does nothing" hypothesis where a
-    // typoed/whitespaced action falls through to the default branch.
-    if (sugg.action !== "Leave alone") {
-      await store.appendDiag({ kind: "apply_one.unmapped_action", emailId, action: sugg.action });
-    }
     await store.deleteSuggestion(emailId);
     await store.appendDiag({ kind: "apply_one.done", emailId, ok: true, noop: true });
     return { ok: true, applied: sugg.action, noop: true };

@@ -111,9 +111,38 @@ describe("actionToLabelDiff", () => {
     assert.deepEqual(d.add, []);
     assert.deepEqual(d.remove, []);
   });
-  test("Unknown action: noop (defensive)", () => {
+  test("Unknown action: noop (defensive) and flagged unmapped", () => {
     const d = actionToLabelDiff("Explode");
     assert.equal(d.noop, true);
+    assert.equal(d.unmapped, true);
+  });
+  test("Trims trailing whitespace so 'Archive ' still maps", () => {
+    const d = actionToLabelDiff("Archive ");
+    assert.deepEqual(d.add, []);
+    assert.deepEqual(d.remove, ["INBOX"]);
+    assert.notEqual(d.unmapped, true);
+  });
+  test("Trims leading whitespace too", () => {
+    const d = actionToLabelDiff("  Star");
+    assert.deepEqual(d.add, ["STARRED"]);
+    assert.deepEqual(d.remove, ["INBOX"]);
+  });
+  test("Wrong case is NOT silently coerced — surfaces as unmapped", () => {
+    const d = actionToLabelDiff("ARCHIVE");
+    assert.equal(d.noop, true);
+    assert.equal(d.unmapped, true);
+  });
+  test("'Leave alone' is noop but NOT unmapped (intentional noop)", () => {
+    const d = actionToLabelDiff("Leave alone");
+    assert.equal(d.noop, true);
+    assert.notEqual(d.unmapped, true);
+  });
+  test("null / undefined / empty inputs surface as unmapped", () => {
+    for (const bad of [null, undefined, "", "   "]) {
+      const d = actionToLabelDiff(bad);
+      assert.equal(d.noop, true, `expected noop for ${JSON.stringify(bad)}`);
+      assert.equal(d.unmapped, true, `expected unmapped for ${JSON.stringify(bad)}`);
+    }
   });
 });
 
