@@ -7,6 +7,30 @@ ranking, most-severe first.
 
 ## 1. [HIGH] Clicking "Archive" on a suggestion does nothing visible
 
+**Status:** Silent-failure paths closed in 6e92e03 (defence-in-depth on top
+of the diagnostics + visible-toast work from 55766fa). Root cause not yet
+observed in production — the four hypotheses below all now produce a
+visible signal (toast and/or diagnostic event) instead of failing silently,
+so any future reproduction can be diagnosed precisely from a copied
+diagnostics buffer without reading the user's email. If the bug recurs,
+the diagnostic log will identify which hypothesis was the actual cause.
+
+What changed in 6e92e03:
+- `actionToLabelDiff` now trims its input, so model-emitted whitespace
+  (`"Archive "`) still maps to the correct Gmail diff instead of falling
+  through to noop.
+- Unknown actions now return `{ noop: true, unmapped: true }`, distinct
+  from the intentional `"Leave alone"` noop.
+- `pipeline.applyOne` refuses to delete the suggestion on unmapped
+  actions; it returns `{ ok: false, error.kind: "unmapped-action" }`,
+  writes to `APPLY_ERRORS` (visible toast), and emits the existing
+  `apply_one.unmapped_action` diagnostic. The suggestion stays visible
+  until something resolves it.
+- Tests in `extension/tests/apply.test.js` and
+  `extension/tests/classify.test.js` cover the trim path, the
+  wrong-case unmapped path, the diagnostic emit, and Gmail-API errors
+  on Archive surfacing through `APPLY_ERRORS`.
+
 **Symptom (reported):** The user clicks the Archive action pill on an email
 suggestion in the side panel and nothing happens — the row doesn't disappear
 and the email isn't archived in Gmail.
