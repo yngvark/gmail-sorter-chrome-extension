@@ -69,7 +69,7 @@ animations. When the user clicks an action pill, the row is marked
 `leaving` (CSS transitions opacity + max-height), the service worker
 applies the change, storage updates, `storage.onChanged` fires, and the
 panel re-renders. If that re-render wipes the DOM, the fade is
-interrupted and the row disappears instantly. So `renderSuggestions()` is
+interrupted and the row disappears instantly. So `renderEmails()` is
 a DOM diff that preserves existing rows and schedules their removal only
 when their fade finishes.
 

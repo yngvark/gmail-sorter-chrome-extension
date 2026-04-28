@@ -33,9 +33,10 @@ auth and Gmail wiring without going through the storage subscription.
   `extension/background/background.js` to `pipeline.fetchInbox`, which
   writes the result via `store.setInbox`.
 - The side panel's `subscribeToStorage` already listens on
-  `KEYS.INBOX` and triggers `renderInbox`, which un-hides the inbox
-  `<details>` panel (`#inbox-details`) when there are rows. No
-  additional render plumbing was needed.
+  `KEYS.INBOX` and triggers `renderEmails`, which renders one row per
+  fetched email in the unified inbox list. No additional render
+  plumbing was needed. (See `docs/merged-email-list.md` for the merged
+  list layout.)
 - While the request is pending, the button label changes to "Fetching"
   and the button is disabled, mirroring `renderClassifyButton`.
 - In standalone (non-extension) mode, a `simulateFetch` populates a

@@ -15,12 +15,20 @@ import { DEFAULT_SETTINGS } from "../lib/schema.js";
 const FADE_DURATION_MS = 200;
 const APPLY_ALL_STAGGER_MS = 250;
 
+const PLACEHOLDER_INBOX = [
+  { id: "i1", from: "GitHub",   subject: "[repo] PR #42 opened" },
+  { id: "i2", from: "Substack", subject: "This week in AI" },
+  { id: "i3", from: "Sam",      subject: "Coffee next week?" },
+  { id: "i4", from: "Calendar", subject: "Reminder: 1:1" },
+  { id: "i5", from: "Amazon",   subject: "Your order shipped" },
+];
+
 const PLACEHOLDER_SUGGESTIONS = [
-  { emailId: "p1", from: "Mom",              subject: "Dinner Saturday?",       action: "Star" },
-  { emailId: "p2", from: "Stripe",           subject: "Receipt for $47.00",     action: "Archive" },
-  { emailId: "p3", from: "Alex (colleague)", subject: "Can you review the PR?", action: "Move: Follow-up" },
-  { emailId: "p4", from: "Google",           subject: "Security alert",         action: "Mark read" },
-  { emailId: "p5", from: "LinkedIn",         subject: "8 new jobs for you",     action: "Archive" },
+  { emailId: "i1", from: "GitHub",   subject: "[repo] PR #42 opened", action: "Move: Follow-up" },
+  { emailId: "i2", from: "Substack", subject: "This week in AI",      action: "Archive" },
+  { emailId: "i3", from: "Sam",      subject: "Coffee next week?",    action: "Star" },
+  { emailId: "i4", from: "Calendar", subject: "Reminder: 1:1",        action: "Mark read" },
+  { emailId: "i5", from: "Amazon",   subject: "Your order shipped",   action: "Archive" },
 ];
 
 // True when running inside the extension (chrome.runtime is populated). In
@@ -31,7 +39,7 @@ const isExtension = Boolean(globalThis.chrome?.runtime?.id);
 // ------------------------ State ------------------------
 
 const state = {
-  inbox: {},                  // { [id]: { id, from, subject, ... } }
+  inbox: isExtension ? {} : inboxArrayToById(PLACEHOLDER_INBOX),
   suggestions: isExtension ? {} : arrayToById(PLACEHOLDER_SUGGESTIONS),
   classifying: false,
   classifyProgress: 0,
@@ -52,6 +60,12 @@ function arrayToById(arr) {
   return o;
 }
 
+function inboxArrayToById(arr) {
+  const o = {};
+  for (const r of arr) o[r.id] = r;
+  return o;
+}
+
 function sortedSuggestions() {
   return Object.values(state.suggestions);
 }
@@ -68,10 +82,9 @@ const els = {
   classifyCount:  document.getElementById("classify-count"),
   progress:       document.getElementById("progress"),
   progressBar:    document.getElementById("progress-bar"),
-  suggestionList: document.getElementById("suggestion-list"),
-  suggestionCount:document.getElementById("suggestion-count"),
+  emailList:      document.getElementById("email-list"),
+  emailCount:     document.getElementById("email-count"),
   emptyState:     document.getElementById("empty-state"),
-  promptState:    document.getElementById("prompt-state"),
   applyAllBtn:    document.getElementById("apply-all-btn"),
   applyCount:     document.getElementById("apply-count"),
   optionsLink:    document.getElementById("options-link"),
@@ -81,10 +94,7 @@ const els = {
   corsCode:       document.getElementById("cors-code"),
   toasts:         document.getElementById("toasts"),
   dryRunPill:     document.getElementById("dry-run-pill"),
-  rowTpl:         document.getElementById("suggestion-row-template"),
-  inboxDetails:   document.getElementById("inbox-details"),
-  inboxCount:     document.getElementById("inbox-count"),
-  inboxList:      document.getElementById("inbox-list"),
+  rowTpl:         document.getElementById("email-row-template"),
   devTools:       document.getElementById("dev-tools"),
   devAuthBtn:     document.getElementById("dev-auth-btn"),
   devFetchBtn:    document.getElementById("dev-fetch-btn"),
@@ -127,19 +137,15 @@ function renderClassifyButton() {
   }
 }
 
-// Renders the suggestion list as a DOM diff. Existing rows are kept so
-// in-progress fade-outs aren't interrupted when storage.onChanged fires a
-// re-render. Rows whose backing suggestion has vanished are marked
-// "leaving" and removed once their fade animation finishes.
-function renderSuggestions() {
-  const list = sortedSuggestions();
-  const wantedIds = new Set(list.map((s) => s.emailId));
+// Renders the unified email list as a DOM diff. Driven by state.inbox; each
+// row gains an action pill iff a suggestion exists for that email id. Existing
+// rows are kept so in-progress fade-outs aren't interrupted when
+// storage.onChanged fires a re-render.
+function renderEmails() {
+  const emails = sortedInbox();
+  const wantedIds = new Set(emails.map((e) => e.id));
 
-  // Remove rows whose suggestions no longer exist. A row may already be in
-  // the "leaving" state — either we marked it for fade on click, or an
-  // earlier render pass did. Use dataset.removing to avoid double-scheduling
-  // the removal timer.
-  for (const row of [...els.suggestionList.children]) {
+  for (const row of [...els.emailList.children]) {
     const id = row.dataset.emailId;
     if (wantedIds.has(id)) continue;
     if (!row.classList.contains("leaving")) row.classList.add("leaving");
@@ -149,53 +155,35 @@ function renderSuggestions() {
     }
   }
 
-  // Add rows for new suggestions. Keep existing ones in place (updating their
-  // action pill if it changed).
   const existing = new Map();
-  for (const row of els.suggestionList.children) existing.set(row.dataset.emailId, row);
+  for (const row of els.emailList.children) existing.set(row.dataset.emailId, row);
 
-  for (const s of list) {
-    let row = existing.get(s.emailId);
+  for (const e of emails) {
+    let row = existing.get(e.id);
     if (!row) {
       row = els.rowTpl.content.firstElementChild.cloneNode(true);
-      row.dataset.emailId = s.emailId;
-      row.querySelector(".suggestion-row__from").textContent = s.from;
-      row.querySelector(".suggestion-row__subject").textContent = s.subject;
+      row.dataset.emailId = e.id;
+      row.querySelector(".email-row__from").textContent = e.from || "(unknown)";
+      row.querySelector(".email-row__subject").textContent = e.subject || "(no subject)";
       const pill = row.querySelector(".action-pill");
-      pill.addEventListener("click", () => applyOne(s.emailId));
-      els.suggestionList.append(row);
+      pill.addEventListener("click", () => applyOne(e.id));
+      els.emailList.append(row);
     }
+
+    const sugg = state.suggestions[e.id];
     const pill = row.querySelector(".action-pill");
-    if (pill.textContent !== s.action) pill.textContent = s.action;
-    pill.dataset.action = s.action;
+    if (sugg) {
+      if (pill.textContent !== sugg.action) pill.textContent = sugg.action;
+      pill.dataset.action = sugg.action;
+      pill.hidden = false;
+    } else {
+      pill.hidden = true;
+      pill.removeAttribute("data-action");
+      pill.textContent = "";
+    }
   }
 
-  // Count reflects non-leaving rows only — visual counter should match what
-  // the user sees.
-  els.suggestionCount.textContent = String(list.length);
-}
-
-function renderInbox() {
-  const rows = sortedInbox();
-  if (rows.length === 0) {
-    els.inboxDetails.hidden = true;
-    return;
-  }
-  els.inboxDetails.hidden = false;
-  els.inboxCount.textContent = String(rows.length);
-  els.inboxList.innerHTML = "";
-  for (const r of rows) {
-    const li = document.createElement("li");
-    li.className = "inbox__item";
-    const from = document.createElement("span");
-    from.className = "inbox__from";
-    from.textContent = r.from || "(unknown)";
-    const subj = document.createElement("span");
-    subj.className = "inbox__subject";
-    subj.textContent = r.subject || "(no subject)";
-    li.append(from, subj);
-    els.inboxList.append(li);
-  }
+  els.emailCount.textContent = String(emails.length);
 }
 
 function renderApplyAll() {
@@ -215,12 +203,9 @@ function renderApplyAll() {
   }
 }
 
-function renderEmptyStates() {
-  const hasSuggestions = sortedSuggestions().length > 0;
-  const showEmpty = !state.classifying && !hasSuggestions && state.hasClassified;
-  const showPrompt = !state.classifying && !hasSuggestions && !state.hasClassified;
-  els.emptyState.hidden = !showEmpty;
-  els.promptState.hidden = !showPrompt;
+function renderEmailEmptyState() {
+  const hasEmails = sortedInbox().length > 0;
+  els.emptyState.hidden = hasEmails || state.fetching;
 }
 
 function renderCorsBanner() {
@@ -306,10 +291,9 @@ function renderDryRunPill() {
 function render() {
   renderFetchButton();
   renderClassifyButton();
-  renderInbox();
-  renderSuggestions();
+  renderEmails();
   renderApplyAll();
-  renderEmptyStates();
+  renderEmailEmptyState();
   renderCorsBanner();
   renderToasts();
   renderDryRunPill();
@@ -323,7 +307,7 @@ function fadeOutThen(el, cb) {
 }
 
 async function applyOne(emailId) {
-  const row = els.suggestionList.querySelector(`[data-email-id="${emailId}"]`);
+  const row = els.emailList.querySelector(`[data-email-id="${emailId}"]`);
   if (row) row.classList.add("leaving");
 
   if (isExtension) {
@@ -342,8 +326,9 @@ async function applyOne(emailId) {
           renderToasts();
         }
       }
-      // On success, storage.onChanged drops the suggestion; renderSuggestions
-      // diff keeps the row fading then removes it when the fade completes.
+      // On success, storage.onChanged drops both the suggestion and the inbox
+      // row; renderEmails' diff keeps the row fading then removes it when the
+      // fade completes.
     } catch (err) {
       if (row) row.classList.remove("leaving");
       console.error(err);
@@ -356,9 +341,12 @@ async function applyOne(emailId) {
     return;
   }
 
-  // Placeholder path (outside the extension): local mutation only.
+  // Placeholder path (outside the extension): mirror in-extension behavior by
+  // dropping both the suggestion and the inbox row, so the merged list fades
+  // the row out instead of just stripping its pill.
   setTimeout(() => {
     delete state.suggestions[emailId];
+    delete state.inbox[emailId];
     render();
   }, FADE_DURATION_MS);
 }
@@ -411,11 +399,11 @@ async function applyAll() {
 function simulateClassify() {
   if (state.classifying) return;
   const demoPool = [
-    { emailId: "s1", from: "GitHub",    subject: "[repo] PR #42 opened", action: "Move: Follow-up" },
-    { emailId: "s2", from: "Substack",  subject: "This week in AI",      action: "Archive" },
-    { emailId: "s3", from: "Sam",       subject: "Coffee next week?",    action: "Star" },
-    { emailId: "s4", from: "Calendar",  subject: "Reminder: 1:1",        action: "Mark read" },
-    { emailId: "s5", from: "Amazon",    subject: "Your order shipped",   action: "Archive" },
+    { emailId: "i1", from: "GitHub",    subject: "[repo] PR #42 opened", action: "Move: Follow-up" },
+    { emailId: "i2", from: "Substack",  subject: "This week in AI",      action: "Archive" },
+    { emailId: "i3", from: "Sam",       subject: "Coffee next week?",    action: "Star" },
+    { emailId: "i4", from: "Calendar",  subject: "Reminder: 1:1",        action: "Mark read" },
+    { emailId: "i5", from: "Amazon",    subject: "Your order shipped",   action: "Archive" },
   ];
 
   state.suggestions = {};
@@ -446,20 +434,10 @@ function simulateClassify() {
 // during local UI iteration. Mirrors `simulateClassify`'s pattern.
 function simulateFetch() {
   if (state.fetching) return;
-  const demoInbox = [
-    { id: "i1", from: "GitHub",   subject: "[repo] PR #42 opened" },
-    { id: "i2", from: "Substack", subject: "This week in AI" },
-    { id: "i3", from: "Sam",      subject: "Coffee next week?" },
-    { id: "i4", from: "Calendar", subject: "Reminder: 1:1" },
-    { id: "i5", from: "Amazon",   subject: "Your order shipped" },
-  ];
-
   state.fetching = true;
   render();
   setTimeout(() => {
-    const byId = {};
-    for (const r of demoInbox) byId[r.id] = r;
-    state.inbox = byId;
+    state.inbox = inboxArrayToById(PLACEHOLDER_INBOX);
     state.fetching = false;
     render();
   }, 400);

@@ -45,28 +45,16 @@
         </div>
       </section>
 
-      <details class="inbox" id="inbox-details" hidden>
-        <summary class="inbox__summary">
-          <span class="inbox__label">Inbox</span>
-          <span class="inbox__count" id="inbox-count">0</span>
-        </summary>
-        <ul class="inbox__list" id="inbox-list"></ul>
-      </details>
-
-      <section class="suggestions" aria-label="Suggestions">
+      <section class="emails" aria-label="Inbox">
         <div class="section-head">
-          <span class="section-head__label">Suggestions</span>
-          <span class="section-head__count" id="suggestion-count">0</span>
+          <span class="section-head__label">Inbox</span>
+          <span class="section-head__count" id="email-count">0</span>
         </div>
 
-        <ul class="suggestion-list" id="suggestion-list"></ul>
+        <ul class="email-list" id="email-list"></ul>
 
         <p class="empty-state" id="empty-state" hidden>
-          Nothing to sort. Click <em>Classify inbox</em> to re-run.
-        </p>
-
-        <p class="prompt-state" id="prompt-state">
-          Your inbox is waiting. Press <em>Classify inbox</em> above to begin.
+          Your inbox is empty. Press <em>Fetch inbox</em> above to pull new mail.
         </p>
       </section>
     </main>
@@ -86,13 +74,13 @@
       </div>
     </footer>
 
-    <template id="suggestion-row-template">
-      <li class="suggestion-row">
-        <div class="suggestion-row__meta">
-          <div class="suggestion-row__from"></div>
-          <div class="suggestion-row__subject"></div>
+    <template id="email-row-template">
+      <li class="email-row">
+        <div class="email-row__meta">
+          <div class="email-row__from"></div>
+          <div class="email-row__subject"></div>
         </div>
-        <button class="action-pill" type="button"></button>
+        <button class="action-pill" type="button" hidden></button>
       </li>
     </template>
 
