@@ -160,6 +160,8 @@ Ollama's `num_ctx`.
 
 ## 5. [INFRASTRUCTURE] No way to debug user-reported bugs without reading their email
 
+**Status:** Fixed in 55766fa
+
 **Symptom (reported):** The user explicitly noted they don't want anyone
 reading their inbox to debug, and asked for tools so issues can be
 investigated without that.
