@@ -1,6 +1,7 @@
 /* ------------------------------------------------------------------
    Gmail Sorter — side panel
-   Aesthetic: Nordic editorial. Warm paper, deep ink, forest accent.
+   Aesthetic: warm paper palette with Gmail's font stack so text in the
+   panel matches the inbox it sits next to.
    ------------------------------------------------------------------ */
 
 :root {
@@ -17,12 +18,13 @@
   --sienna:      #a8532a;    /* error / warning */
   --gold:        #b7903c;    /* subtle highlight */
 
-  /* Typography */
-  --serif-display: "Iowan Old Style", "Palatino Linotype", "Palatino",
-                   "URW Palladio L", "Book Antiqua", "Cambria", "Georgia", serif;
-  --serif-body:    "Iowan Old Style", "Charter", "Bitstream Charter",
-                   "Cambria", "Georgia", serif;
-  --sans:          "Söhne", "Inter Tight", "Helvetica Neue", "Arial", sans-serif;
+  /* Typography — match Gmail's font stack (Google Sans → Roboto → fallbacks).
+     Names kept (--serif-*, --sans) to avoid touching every call site;
+     they all resolve to the same family now. */
+  --gmail-stack:   "Google Sans", "Roboto", "RobotoDraft", "Helvetica", "Arial", sans-serif;
+  --serif-display: var(--gmail-stack);
+  --serif-body:    var(--gmail-stack);
+  --sans:          var(--gmail-stack);
   --mono:          "JetBrains Mono", "SF Mono", "IBM Plex Mono", ui-monospace,
                    "Menlo", "Consolas", monospace;
 

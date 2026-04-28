@@ -1,8 +1,8 @@
 /* ------------------------------------------------------------------
    Gmail Sorter — options page
-   Shares the aesthetic of the side panel: warm paper, deep ink serif,
-   forest accent, sienna for danger. Layout is a single narrow column
-   centered on the page, echoing an editorial page-set.
+   Shares the aesthetic of the side panel: warm paper, deep ink,
+   forest accent, sienna for danger. Typography uses Gmail's font
+   stack so the page reads as kin to Gmail.
    ------------------------------------------------------------------ */
 
 :root {
@@ -19,11 +19,10 @@
   --sienna-2:    #8e431f;
   --gold:        #b7903c;
 
-  --serif-display: "Iowan Old Style", "Palatino Linotype", "Palatino",
-                   "URW Palladio L", "Book Antiqua", "Cambria", "Georgia", serif;
-  --serif-body:    "Iowan Old Style", "Charter", "Bitstream Charter",
-                   "Cambria", "Georgia", serif;
-  --sans:          "Söhne", "Inter Tight", "Helvetica Neue", "Arial", sans-serif;
+  --gmail-stack:   "Google Sans", "Roboto", "RobotoDraft", "Helvetica", "Arial", sans-serif;
+  --serif-display: var(--gmail-stack);
+  --serif-body:    var(--gmail-stack);
+  --sans:          var(--gmail-stack);
   --mono:          "JetBrains Mono", "SF Mono", "IBM Plex Mono", ui-monospace,
                    "Menlo", "Consolas", monospace;
 
