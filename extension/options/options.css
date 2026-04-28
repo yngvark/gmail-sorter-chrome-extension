@@ -368,7 +368,8 @@ body { position: relative; overflow-x: hidden; }
 }
 
 .save-status,
-.signout-status {
+.signout-status,
+.diag-status {
   font-family: var(--serif-body);
   font-style: italic;
   color: var(--forest);
@@ -377,6 +378,15 @@ body { position: relative; overflow-x: hidden; }
 }
 
 .save-status.--error,
-.signout-status.--error { color: var(--sienna); }
+.signout-status.--error,
+.diag-status.--error { color: var(--sienna); }
 
 .signout-status { margin-left: 8px; }
+
+.diag-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}

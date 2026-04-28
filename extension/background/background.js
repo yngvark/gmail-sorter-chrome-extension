@@ -4,6 +4,7 @@
 import { MSG, reply, replyError } from "../lib/messages.js";
 import { getToken, signOut, maskToken } from "./auth.js";
 import * as pipeline from "./pipeline.js";
+import * as store from "./storage.js";
 
 chrome.sidePanel
   .setPanelBehavior({ openPanelOnActionClick: true })
@@ -15,9 +16,19 @@ chrome.sidePanel
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   handle(msg)
-    .then(sendResponse)
-    .catch((err) => {
+    .then(async (response) => {
+      // Top-level wrapper diagnostic. Note: per-handler diagnostics live in
+      // pipeline.js for the handlers that have their own taxonomy.
+      try {
+        await store.appendDiag({ kind: "msg", type: msg?.type, ok: Boolean(response?.ok) });
+      } catch { /* never let diag errors break the response path */ }
+      sendResponse(response);
+    })
+    .catch(async (err) => {
       console.error("[gmail-sorter]", msg?.type, err);
+      try {
+        await store.appendDiag({ kind: "msg", type: msg?.type, ok: false });
+      } catch { /* see above */ }
       sendResponse(replyError({ kind: "unknown", message: String(err?.message || err) }));
     });
   return true; // keep the message channel open for async response
@@ -57,6 +68,14 @@ async function handle(msg) {
     case MSG.PROBE_SUPERSTAR: {
       const result = await pipeline.probeSuperstar({ variant: msg.variant });
       return reply(result);
+    }
+    case MSG.GET_DIAG: {
+      const events = await store.getDiag();
+      return reply({ events });
+    }
+    case MSG.CLEAR_DIAG: {
+      await store.clearDiag();
+      return reply({ cleared: true });
     }
     default:
       return replyError({ kind: "unknown-message", message: `Unknown message type: ${msg?.type}` });

@@ -18,7 +18,14 @@ export const KEYS = Object.freeze({
 
   SETTINGS:          "settings",          // sync: see schema.js for shape
   FOLLOWUP_LABEL_ID: "followUpLabelId",   // sync: cached custom-label id
+
+  DIAG_LOG:          "diagLog",           // local: redacted ring buffer of diagnostic events
 });
+
+// Cap on the number of diagnostic events kept in chrome.storage.local.
+// Older entries fall off the front. The buffer is intentionally small —
+// we only need it to debug a recent reproduction.
+export const DIAG_BUFFER_MAX = 200;
 
 // ------------------------ Thin wrappers ------------------------
 
@@ -134,4 +141,41 @@ export async function setSettings(patch) {
 
 export async function setHasClassified(value = true) {
   await set("local", KEYS.HAS_CLASSIFIED, value);
+}
+
+// ------------------------ Diagnostics ring buffer ------------------------
+//
+// Privacy contract: events MUST NOT contain email content (from/subject/
+// snippet/body). Email IDs (Gmail's opaque hex) are fine — they're not
+// content. See docs/diagnostics.md for the full taxonomy.
+
+// Serialise reads + writes so concurrent appends don't lose entries — the
+// pipeline emits multiple events per email in parallel.
+let diagLock = Promise.resolve();
+function withDiagLock(fn) {
+  const next = diagLock.then(fn, fn);
+  diagLock = next.catch(() => {});
+  return next;
+}
+
+export function appendDiag(event) {
+  return withDiagLock(async () => {
+    const settings = await getSettings();
+    if (!settings.diagnostics) return;
+    const buf = (await get("local", KEYS.DIAG_LOG, [])) || [];
+    buf.push({ ts: Date.now(), ...event });
+    // Trim from the front so the buffer stays bounded.
+    const trimmed = buf.length > DIAG_BUFFER_MAX
+      ? buf.slice(buf.length - DIAG_BUFFER_MAX)
+      : buf;
+    await set("local", KEYS.DIAG_LOG, trimmed);
+  });
+}
+
+export async function getDiag() {
+  return (await get("local", KEYS.DIAG_LOG, [])) || [];
+}
+
+export async function clearDiag() {
+  await set("local", KEYS.DIAG_LOG, []);
 }

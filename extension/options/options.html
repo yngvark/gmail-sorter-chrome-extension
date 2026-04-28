@@ -99,6 +99,25 @@
               </span>
             </span>
           </label>
+
+          <label class="field field--checkbox">
+            <input type="checkbox" id="diagnostics" />
+            <span class="field__label">
+              Diagnostics mode
+              <span class="field__hint">
+                Records redacted message events for debugging. No email
+                content (subjects, senders, bodies) is ever stored.
+              </span>
+            </span>
+          </label>
+
+          <div class="field">
+            <div class="diag-actions">
+              <button type="button" class="pill-btn pill-btn--ghost" id="copy-diag-btn">Copy diagnostics</button>
+              <button type="button" class="pill-btn pill-btn--ghost" id="clear-diag-btn">Clear</button>
+              <span class="diag-status" id="diag-status"></span>
+            </div>
+          </div>
         </section>
 
         <section class="field-group">

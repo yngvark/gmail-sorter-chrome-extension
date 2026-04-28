@@ -332,12 +332,26 @@ async function applyOne(emailId) {
       if (!res?.ok) {
         if (row) row.classList.remove("leaving");
         console.error("apply failed", res);
+        // Surface a fallback toast immediately so the user sees the failure
+        // even if the storage.onChanged path is delayed or the background
+        // didn't write to KEYS.APPLY_ERRORS for some reason. Keyed by
+        // emailId so it merges with the storage-driven toast harmlessly.
+        const message = res?.error?.message || "Apply failed.";
+        if (!state.applyErrors[emailId]) {
+          state.applyErrors[emailId] = { message };
+          renderToasts();
+        }
       }
       // On success, storage.onChanged drops the suggestion; renderSuggestions
       // diff keeps the row fading then removes it when the fade completes.
     } catch (err) {
       if (row) row.classList.remove("leaving");
       console.error(err);
+      const message = err?.message || "Apply failed.";
+      if (!state.applyErrors[emailId]) {
+        state.applyErrors[emailId] = { message };
+        renderToasts();
+      }
     }
     return;
   }

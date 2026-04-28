@@ -27,6 +27,7 @@ export async function mapWithConcurrency(items, limit, fn) {
 // ------------------------ fetchInbox ------------------------
 
 export async function fetchInbox({ maxResults = 50 } = {}) {
+  await store.appendDiag({ kind: "fetch_inbox.start", maxResults });
   const token = await getToken({ interactive: true });
   const ids = await gmail.listInboxIds(token, { maxResults });
 
@@ -42,7 +43,9 @@ export async function fetchInbox({ maxResults = 50 } = {}) {
   }
   await store.setInbox(byId);
 
-  return { fetched: Object.keys(byId).length };
+  const fetched = Object.keys(byId).length;
+  await store.appendDiag({ kind: "fetch_inbox.done", fetched });
+  return { fetched };
 }
 
 // ------------------------ classifyOne (dev) ------------------------
@@ -99,10 +102,12 @@ export async function classifyInbox() {
     const todo = Object.values(inbox).filter((e) => !existing[e.id]);
 
     await store.setClassifyProgress({ classifying: true, progress: 0, total: todo.length });
+    await store.appendDiag({ kind: "classify_inbox.start", total: todo.length });
 
     if (todo.length === 0) {
       await store.setClassifyProgress({ classifying: false, progress: 0, total: 0 });
       await store.setHasClassified(true);
+      await store.appendDiag({ kind: "classify_inbox.done", done: 0, total: 0, aborted: false });
       return { started: true, total: 0 };
     }
 
@@ -123,6 +128,7 @@ export async function classifyInbox() {
           // Auth or Gmail error — abort, surface to panel.
           aborted = true;
           await store.putError(err.kind || "gmail", err.message);
+          await store.appendDiag({ kind: "classify_inbox.email", emailId: row.id, ok: false });
           return;
         }
       }
@@ -134,9 +140,11 @@ export async function classifyInbox() {
         if (["cors", "model-missing", "timeout", "config"].includes(result.error.kind)) {
           aborted = true;
           await store.putError(result.error.kind, result.error.message, result.error.hint);
+          await store.appendDiag({ kind: "classify_inbox.email", emailId: email.id, ok: false });
           return;
         }
         // Otherwise treat as "Leave alone" for this email and keep going.
+        await store.appendDiag({ kind: "classify_inbox.email", emailId: email.id, ok: false });
         return;
       }
 
@@ -151,10 +159,17 @@ export async function classifyInbox() {
 
       done++;
       await store.setClassifyProgress({ classifying: true, progress: done, total: todo.length });
+      await store.appendDiag({
+        kind: "classify_inbox.email",
+        emailId: email.id,
+        action: result.action,
+        ok: true,
+      });
     });
 
     await store.setClassifyProgress({ classifying: false, progress: done, total: todo.length });
     await store.setHasClassified(true);
+    await store.appendDiag({ kind: "classify_inbox.done", done, total: todo.length, aborted });
     return { started: true, total: todo.length, done, aborted };
   } finally {
     classifyInFlight = false;
@@ -194,8 +209,13 @@ export async function ensureFollowUpLabel(token) {
 export async function applyOne(emailId) {
   const suggestions = await store.getSuggestions();
   const sugg = suggestions[emailId];
-  if (!sugg) return { ok: false, error: { kind: "missing", message: "suggestion not found" } };
+  if (!sugg) {
+    const result = { ok: false, error: { kind: "missing", message: "suggestion not found" } };
+    await emitApplyOneFailure(emailId, undefined, result);
+    return result;
+  }
 
+  await store.appendDiag({ kind: "apply_one.start", emailId, action: sugg.action });
   const settings = await store.getSettings();
 
   // Dry-run: skip the Gmail mutation entirely and just clear local state.
@@ -203,18 +223,35 @@ export async function applyOne(emailId) {
   if (settings.dryRun) {
     await store.deleteSuggestion(emailId);
     await removeFromInbox(emailId);
-    return { ok: true, applied: sugg.action, dryRun: true };
+    const r = { ok: true, applied: sugg.action, dryRun: true };
+    await store.appendDiag({ kind: "apply_one.done", emailId, ok: true, dryRun: true });
+    return r;
   }
 
   let diff = actionToLabelDiff(sugg.action);
 
   // Leave alone just clears the suggestion locally; nothing to do at Gmail.
   if (diff.noop) {
+    // If the action wasn't "Leave alone" but still mapped to noop, the
+    // action string didn't match any case in actionToLabelDiff — this is
+    // the smoking-gun for the "Archive does nothing" hypothesis where a
+    // typoed/whitespaced action falls through to the default branch.
+    if (sugg.action !== "Leave alone") {
+      await store.appendDiag({ kind: "apply_one.unmapped_action", emailId, action: sugg.action });
+    }
     await store.deleteSuggestion(emailId);
+    await store.appendDiag({ kind: "apply_one.done", emailId, ok: true, noop: true });
     return { ok: true, applied: sugg.action, noop: true };
   }
 
-  const token = await getToken({ interactive: true });
+  let token;
+  try {
+    token = await getToken({ interactive: true });
+  } catch (err) {
+    const result = { ok: false, error: { kind: err.kind || "auth", message: err.message } };
+    await emitApplyOneFailure(emailId, sugg.action, result);
+    return result;
+  }
 
   // Lazy-create the Follow-up label if this is our first Move action.
   if (sugg.action === "Move: Follow-up" && diff.needsFollowUpLabel) {
@@ -223,7 +260,11 @@ export async function applyOne(emailId) {
       diff = actionToLabelDiff(sugg.action, { followUpLabelId: labelId });
     } catch (err) {
       await store.putApplyError(emailId, `Could not create Follow-up label: ${err.message}`);
-      return { ok: false, error: { kind: "gmail", message: err.message } };
+      const result = { ok: false, error: { kind: "gmail", message: err.message } };
+      await store.appendDiag({
+        kind: "apply_one.done", emailId, ok: false, errorKind: result.error.kind,
+      });
+      return result;
     }
   }
 
@@ -232,11 +273,32 @@ export async function applyOne(emailId) {
     await store.deleteSuggestion(emailId);
     await store.clearApplyError(emailId);
     await removeFromInbox(emailId);
+    await store.appendDiag({ kind: "apply_one.done", emailId, ok: true });
     return { ok: true, applied: sugg.action };
   } catch (err) {
     await store.putApplyError(emailId, err.message);
-    return { ok: false, error: { kind: err.kind || "gmail", message: err.message } };
+    const result = { ok: false, error: { kind: err.kind || "gmail", message: err.message } };
+    await store.appendDiag({
+      kind: "apply_one.done", emailId, ok: false, errorKind: result.error.kind,
+    });
+    return result;
   }
+}
+
+// Always-on visibility: if applyOne returns non-ok for ANY reason — missing
+// suggestion, auth failure before the Gmail call, etc. — write to
+// APPLY_ERRORS so the side panel toast renders. Previously only thrown
+// errors from gmail.modifyLabels surfaced; everything else was silent.
+async function emitApplyOneFailure(emailId, action, result) {
+  const message = result?.error?.message || "Apply failed";
+  await store.putApplyError(emailId, message);
+  await store.appendDiag({
+    kind: "apply_one.done",
+    emailId,
+    ok: false,
+    errorKind: result?.error?.kind,
+    ...(action ? { action } : {}),
+  });
 }
 
 // ------------------------ Superstar probe (dev) ------------------------

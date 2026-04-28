@@ -14,6 +14,10 @@ const els = {
   rules:          document.getElementById("rules"),
   maxInbox:       document.getElementById("maxInbox"),
   dryRun:         document.getElementById("dryRun"),
+  diagnostics:    document.getElementById("diagnostics"),
+  copyDiagBtn:    document.getElementById("copy-diag-btn"),
+  clearDiagBtn:   document.getElementById("clear-diag-btn"),
+  diagStatus:     document.getElementById("diag-status"),
   saveBtn:        document.getElementById("save-btn"),
   resetBtn:       document.getElementById("reset-btn"),
   signoutBtn:     document.getElementById("signout-btn"),
@@ -36,6 +40,7 @@ function populate(s) {
   els.rules.value         = s.rules;
   els.maxInbox.value      = s.maxInbox;
   els.dryRun.checked      = Boolean(s.dryRun);
+  els.diagnostics.checked = Boolean(s.diagnostics);
 }
 
 function collect() {
@@ -46,6 +51,7 @@ function collect() {
     rules:         els.rules.value.trim()         || DEFAULT_RULES,
     maxInbox:      clamp(Number(els.maxInbox.value) || DEFAULT_SETTINGS.maxInbox, 1, 500),
     dryRun:        Boolean(els.dryRun.checked),
+    diagnostics:   Boolean(els.diagnostics.checked),
   };
 }
 
@@ -102,11 +108,47 @@ document.addEventListener("click", (e) => {
   });
 });
 
+// ---------------------- Diagnostics buttons ----------------------
+
+async function copyDiagnostics() {
+  els.copyDiagBtn.disabled = true;
+  try {
+    const res = await chrome.runtime.sendMessage({ type: MSG.GET_DIAG });
+    if (!res?.ok) {
+      flashStatus(els.diagStatus, "Could not read diagnostics.", true);
+      return;
+    }
+    const payload = JSON.stringify(res.data?.events ?? [], null, 2);
+    await navigator.clipboard.writeText(payload);
+    const count = (res.data?.events ?? []).length;
+    flashStatus(els.diagStatus, `Copied ${count} event${count === 1 ? "" : "s"}.`, false);
+  } catch (err) {
+    flashStatus(els.diagStatus, err.message, true);
+  } finally {
+    els.copyDiagBtn.disabled = false;
+  }
+}
+
+async function clearDiagnostics() {
+  els.clearDiagBtn.disabled = true;
+  try {
+    const res = await chrome.runtime.sendMessage({ type: MSG.CLEAR_DIAG });
+    if (res?.ok) flashStatus(els.diagStatus, "Cleared.", false);
+    else        flashStatus(els.diagStatus, "Clear failed.", true);
+  } catch (err) {
+    flashStatus(els.diagStatus, err.message, true);
+  } finally {
+    els.clearDiagBtn.disabled = false;
+  }
+}
+
 // ---------------------- Boot ----------------------
 
 els.form.addEventListener("submit", save);
 els.resetBtn.addEventListener("click", reset);
 els.signoutBtn.addEventListener("click", signOut);
+els.copyDiagBtn.addEventListener("click", copyDiagnostics);
+els.clearDiagBtn.addEventListener("click", clearDiagnostics);
 
 // Guard — when the page is loaded standalone (no chrome.runtime), show defaults.
 if (globalThis.chrome?.storage?.sync) {

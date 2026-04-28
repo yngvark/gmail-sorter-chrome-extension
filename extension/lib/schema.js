@@ -25,6 +25,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   rules:         DEFAULT_RULES,
   maxInbox:      50,
   dryRun:        false,
+  diagnostics:   false,
 });
 
 // Returned when the model's answer is unparseable. Safe fallback: don't
