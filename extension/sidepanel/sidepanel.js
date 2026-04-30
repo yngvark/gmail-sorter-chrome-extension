@@ -173,8 +173,12 @@ function renderEmails() {
       row.querySelector(".email-row__subject").textContent = e.subject || "(no subject)";
       const pill = row.querySelector(".action-pill");
       pill.addEventListener("click", () => applyOne(e.id));
-      els.emailList.append(row);
     }
+    // Append on every iteration: for a new row this inserts it; for an existing
+    // child this moves it to the current position. Without this, sortedInbox()
+    // ordering changes (e.g. after fetch populates internalDate) wouldn't be
+    // reflected in the DOM since matching rows are reused in their old slot.
+    els.emailList.append(row);
 
     const sugg = state.suggestions[e.id];
     const pill = row.querySelector(".action-pill");
