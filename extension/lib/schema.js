@@ -3,7 +3,9 @@
 // action list (the action → Gmail-diff mapping in classify.js depends on it).
 
 export const ACTIONS = Object.freeze([
-  "Star",
+  "Star: Yellow",
+  "Star: Red",
+  "Star: Red bang",
   "Archive",
   "Mark read",
   "Move: Follow-up",
@@ -11,7 +13,9 @@ export const ACTIONS = Object.freeze([
 ]);
 
 export const DEFAULT_RULES = `\
-Personal, human messages from a real person to me → Star.
+Personal, human messages from a real person to me → Star: Yellow.
+Things I need to reply to or act on soon → Star: Red.
+Urgent — needs my attention today → Star: Red bang.
 Receipts, order confirmations, newsletters, promotional mail → Archive.
 Security alerts or notifications that don't need action → Mark read.
 Colleagues or teammates asking for something from me (a review, a reply, a meeting) → Move: Follow-up.

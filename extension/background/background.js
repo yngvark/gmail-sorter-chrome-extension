@@ -65,10 +65,6 @@ async function handle(msg) {
       const result = await pipeline.applyAll();
       return reply(result);
     }
-    case MSG.PROBE_SUPERSTAR: {
-      const result = await pipeline.probeSuperstar({ variant: msg.variant });
-      return reply(result);
-    }
     case MSG.GET_DIAG: {
       const events = await store.getDiag();
       return reply({ events });

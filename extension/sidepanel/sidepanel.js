@@ -8,7 +8,8 @@
 
 import { MSG } from "../lib/messages.js";
 import { KEYS } from "../background/storage.js";
-import { DEFAULT_SETTINGS } from "../lib/schema.js";
+import { ACTIONS, DEFAULT_SETTINGS } from "../lib/schema.js";
+import { actionPillContent } from "./sidepanel-pill.js";
 
 // ------------------------ Config ------------------------
 
@@ -26,7 +27,7 @@ const PLACEHOLDER_INBOX = [
 const PLACEHOLDER_SUGGESTIONS = [
   { emailId: "i1", from: "GitHub",   subject: "[repo] PR #42 opened", action: "Move: Follow-up" },
   { emailId: "i2", from: "Substack", subject: "This week in AI",      action: "Archive" },
-  { emailId: "i3", from: "Sam",      subject: "Coffee next week?",    action: "Star" },
+  { emailId: "i3", from: "Sam",      subject: "Coffee next week?",    action: "Star: Red" },
   { emailId: "i4", from: "Calendar", subject: "Reminder: 1:1",        action: "Mark read" },
   { emailId: "i5", from: "Amazon",   subject: "Your order shipped",   action: "Archive" },
 ];
@@ -105,7 +106,6 @@ const els = {
   devAuthBtn:     document.getElementById("dev-auth-btn"),
   devFetchBtn:    document.getElementById("dev-fetch-btn"),
   devClassifyBtn: document.getElementById("dev-classify-btn"),
-  devSuperstarBtn:document.getElementById("dev-superstar-btn"),
   devResult:      document.getElementById("dev-result"),
 };
 
@@ -183,7 +183,8 @@ function renderEmails() {
     const sugg = state.suggestions[e.id];
     const pill = row.querySelector(".action-pill");
     if (sugg) {
-      if (pill.textContent !== sugg.action) pill.textContent = sugg.action;
+      const pillText = actionPillContent(sugg.action);
+      if (pill.textContent !== pillText) pill.textContent = pillText;
       pill.dataset.action = sugg.action;
       pill.hidden = false;
     } else {
@@ -411,7 +412,7 @@ function simulateClassify() {
   const demoPool = [
     { emailId: "i1", from: "GitHub",    subject: "[repo] PR #42 opened", action: "Move: Follow-up" },
     { emailId: "i2", from: "Substack",  subject: "This week in AI",      action: "Archive" },
-    { emailId: "i3", from: "Sam",       subject: "Coffee next week?",    action: "Star" },
+    { emailId: "i3", from: "Sam",       subject: "Coffee next week?",    action: "Star: Red" },
     { emailId: "i4", from: "Calendar",  subject: "Reminder: 1:1",        action: "Mark read" },
     { emailId: "i5", from: "Amazon",    subject: "Your order shipped",   action: "Archive" },
   ];
@@ -554,14 +555,6 @@ els.devClassifyBtn.addEventListener("click", () =>
   ),
 );
 
-els.devSuperstarBtn.addEventListener("click", () =>
-  runDevMessage(els.devSuperstarBtn, { type: MSG.PROBE_SUPERSTAR, variant: "red" }, (d) =>
-    d.writable === true  ? `^ss_sr writable ✓`
-  : d.writable === false ? `^ss_sr NOT writable (use custom labels)`
-  : `probe: ${JSON.stringify(d)}`,
-  ),
-);
-
 // ------------------------ Storage subscription ------------------------
 
 async function hydrateFromStorage() {
@@ -576,6 +569,16 @@ async function hydrateFromStorage() {
 
   state.inbox = local[KEYS.INBOX] || {};
   state.suggestions = local[KEYS.SUGGESTIONS] || {};
+  // Migration: drop any suggestion whose action is no longer in the current
+  // taxonomy (e.g. legacy plain "Star" entries from before the multi-star
+  // change). Re-classify will repopulate them. Auto-mapping plain "Star" to
+  // a specific variant would mis-mark urgent mail; safer to drop.
+  {
+    const valid = new Set(ACTIONS);
+    for (const [id, sugg] of Object.entries(state.suggestions)) {
+      if (!valid.has(sugg.action)) delete state.suggestions[id];
+    }
+  }
   state.hasClassified = Boolean(local[KEYS.HAS_CLASSIFIED]);
   state.applyErrors = local[KEYS.APPLY_ERRORS] || {};
 

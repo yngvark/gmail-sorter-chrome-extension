@@ -74,16 +74,32 @@ export async function classifyEmail({ settings, email }) {
 
 // ------------------------ Action → Gmail diff ------------------------
 
-export function actionToLabelDiff(action, { followUpLabelId } = {}) {
+// Helper for the three Star: <variant> cases. Gmail's superstar IDs (^ss_*)
+// are NOT writable via the public REST API — confirmed via probe — so we
+// fall back to applying the system STARRED label *plus* a custom user-label
+// with the variant's colour. The custom label id is lazy-created and cached
+// (see ensureStarLabel in pipeline.js).
+function starDiff(variant, starLabelIds = {}) {
+  const id = starLabelIds[variant];
+  return {
+    add: id ? ["STARRED", id] : ["STARRED"],
+    remove: ["INBOX"],
+    needsStarLabel: id ? null : variant,
+  };
+}
+
+export function actionToLabelDiff(action, { followUpLabelId, starLabelIds } = {}) {
   // Trim incoming action so trivial whitespace from the model (e.g. "Archive ")
   // doesn't fall through to the unmapped branch. We deliberately do NOT
   // lowercase: case mismatches indicate a real model bug and we want them
   // surfaced as `unmapped` rather than silently coerced.
   const normalized = String(action ?? "").trim();
   switch (normalized) {
-    case "Star":             return { add: ["STARRED"],         remove: ["INBOX"] };
-    case "Archive":          return { add: [],                   remove: ["INBOX"] };
-    case "Mark read":        return { add: [],                   remove: ["UNREAD"] };
+    case "Star: Yellow":     return starDiff("yellow",  starLabelIds);
+    case "Star: Red":        return starDiff("red",     starLabelIds);
+    case "Star: Red bang":   return starDiff("redBang", starLabelIds);
+    case "Archive":          return { add: [],                    remove: ["INBOX"] };
+    case "Mark read":        return { add: [],                    remove: ["UNREAD"] };
     case "Move: Follow-up":  return {
       add: followUpLabelId ? [followUpLabelId] : [],
       remove: ["INBOX"],

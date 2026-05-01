@@ -7,7 +7,7 @@ import {
   actionToLabelDiff,
   classifyEmail,
 } from "../background/classify.js";
-import { ACTIONS, DEFAULT_SETTINGS, SAFE_FALLBACK_ACTION } from "../lib/schema.js";
+import { ACTIONS, DEFAULT_RULES, DEFAULT_SETTINGS, SAFE_FALLBACK_ACTION } from "../lib/schema.js";
 
 // ------------------------ buildMessages ------------------------
 
@@ -59,7 +59,7 @@ describe("parseClassification", () => {
     assert.deepEqual(parseClassification({ action: "Archive" }), { action: "Archive" });
   });
   test("accepts a JSON string", () => {
-    assert.deepEqual(parseClassification('{"action":"Star"}'), { action: "Star" });
+    assert.deepEqual(parseClassification('{"action":"Archive"}'), { action: "Archive" });
   });
   test("falls back when JSON is invalid", () => {
     const r = parseClassification("not json at all");
@@ -84,10 +84,34 @@ describe("parseClassification", () => {
 // ------------------------ actionToLabelDiff ------------------------
 
 describe("actionToLabelDiff", () => {
-  test("Star: stars and archives (remove INBOX, add STARRED)", () => {
-    const d = actionToLabelDiff("Star");
+  test("Star: Yellow with no cached id → STARRED only + needsStarLabel='yellow'", () => {
+    const d = actionToLabelDiff("Star: Yellow");
     assert.deepEqual(d.add, ["STARRED"]);
     assert.deepEqual(d.remove, ["INBOX"]);
+    assert.equal(d.needsStarLabel, "yellow");
+  });
+  test("Star: Yellow with cached id → STARRED + custom label, no needsStarLabel", () => {
+    const d = actionToLabelDiff("Star: Yellow", { starLabelIds: { yellow: "Label_42" } });
+    assert.deepEqual(d.add, ["STARRED", "Label_42"]);
+    assert.deepEqual(d.remove, ["INBOX"]);
+    assert.equal(d.needsStarLabel, null);
+  });
+  test("Star: Red with cached id → STARRED + that id", () => {
+    const d = actionToLabelDiff("Star: Red", { starLabelIds: { red: "Label_43" } });
+    assert.deepEqual(d.add, ["STARRED", "Label_43"]);
+    assert.deepEqual(d.remove, ["INBOX"]);
+    assert.equal(d.needsStarLabel, null);
+  });
+  test("Star: Red bang with cached id → STARRED + that id", () => {
+    const d = actionToLabelDiff("Star: Red bang", { starLabelIds: { redBang: "Label_44" } });
+    assert.deepEqual(d.add, ["STARRED", "Label_44"]);
+    assert.deepEqual(d.remove, ["INBOX"]);
+    assert.equal(d.needsStarLabel, null);
+  });
+  test("Plain 'Star' is now unmapped (regression guard)", () => {
+    const d = actionToLabelDiff("Star");
+    assert.equal(d.noop, true);
+    assert.equal(d.unmapped, true);
   });
   test("Archive: removes INBOX only", () => {
     assert.deepEqual(actionToLabelDiff("Archive"), { add: [], remove: ["INBOX"] });
@@ -122,9 +146,9 @@ describe("actionToLabelDiff", () => {
     assert.deepEqual(d.remove, ["INBOX"]);
     assert.notEqual(d.unmapped, true);
   });
-  test("Trims leading whitespace too", () => {
-    const d = actionToLabelDiff("  Star");
-    assert.deepEqual(d.add, ["STARRED"]);
+  test("Trims leading whitespace on a star variant", () => {
+    const d = actionToLabelDiff("  Star: Red", { starLabelIds: { red: "Label_43" } });
+    assert.deepEqual(d.add, ["STARRED", "Label_43"]);
     assert.deepEqual(d.remove, ["INBOX"]);
   });
   test("Wrong case is NOT silently coerced — surfaces as unmapped", () => {
@@ -143,6 +167,24 @@ describe("actionToLabelDiff", () => {
       assert.equal(d.noop, true, `expected noop for ${JSON.stringify(bad)}`);
       assert.equal(d.unmapped, true, `expected unmapped for ${JSON.stringify(bad)}`);
     }
+  });
+});
+
+// ------------------------ ACTIONS taxonomy ------------------------
+
+describe("ACTIONS taxonomy", () => {
+  test("contains three star variants and no plain 'Star'", () => {
+    assert.ok(ACTIONS.includes("Star: Yellow"));
+    assert.ok(ACTIONS.includes("Star: Red"));
+    assert.ok(ACTIONS.includes("Star: Red bang"));
+    assert.ok(!ACTIONS.includes("Star"), "plain 'Star' must be removed");
+  });
+
+  test("DEFAULT_RULES references all three star variants", () => {
+    assert.match(DEFAULT_RULES, /Star: Yellow/);
+    assert.match(DEFAULT_RULES, /→ Star: Red\./);   // arrow + variant + period — distinct from 'Star: Red bang'
+    assert.match(DEFAULT_RULES, /Star: Red bang/);
+    assert.doesNotMatch(DEFAULT_RULES, /→ Star\./, "plain 'Star.' rule should be gone");
   });
 });
 

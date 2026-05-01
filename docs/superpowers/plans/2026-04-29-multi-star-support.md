@@ -104,7 +104,7 @@ Add to the "ACTIONS taxonomy" describe block in `extension/tests/classify.test.j
 ```js
 test("DEFAULT_RULES references all three star variants", () => {
   assert.match(DEFAULT_RULES, /Star: Yellow/);
-  assert.match(DEFAULT_RULES, /Star: Red\b/);     // \b so 'Red' alone doesn't match 'Red bang'
+  assert.match(DEFAULT_RULES, /→ Star: Red\./);   // arrow + variant + period — distinct from 'Star: Red bang'
   assert.match(DEFAULT_RULES, /Star: Red bang/);
   assert.doesNotMatch(DEFAULT_RULES, /→ Star\./, "plain 'Star.' rule should be gone");
 });

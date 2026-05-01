@@ -121,49 +121,6 @@ export async function listLabels(token) {
   return body.labels || [];
 }
 
-// ------------------------ Superstar probe ------------------------
-//
-// Google documents STARRED as a system label (writable via messages.modify)
-// but does NOT document whether coloured / iconised stars — internal IDs of
-// the form "^ss_*" — are writable the same way. This probe attempts to add
-// one and reads the message back to see whether the label persisted. Used
-// once, by a human, during development; results inform whether the taxonomy
-// can include "Star: Red" / "Star: Blue" actions backed by superstars or
-// whether we need to fall back to custom user-labels with colour badges.
-
-export const SUPERSTAR_IDS = Object.freeze({
-  red:         "^ss_sr",
-  orange:      "^ss_so",
-  yellow:      "^ss_sy",
-  green:       "^ss_sg",
-  blue:        "^ss_sb",
-  purple:      "^ss_sp",
-  redBang:     "^ss_cr",
-  questionMark:"^ss_cq",
-  infoIcon:    "^ss_ci",
-});
-
-export async function probeSuperstar(token, messageId, variant = "red") {
-  const labelId = SUPERSTAR_IDS[variant];
-  if (!labelId) throw new Error(`unknown superstar variant: ${variant}`);
-
-  await modifyLabels(token, messageId, { add: [labelId] });
-  const after = await getMessageMetadata(token, messageId);
-  const applied = after.labelIds.includes(labelId);
-
-  // Best-effort cleanup so we don't leave a stray label on the probe message.
-  try { await modifyLabels(token, messageId, { remove: [labelId] }); }
-  catch { /* ignore */ }
-
-  return {
-    messageId,
-    variant,
-    labelId,
-    writable: applied,
-    labelIdsAfter: after.labelIds,
-  };
-}
-
 export async function createLabel(token, { name, color } = {}) {
   return gfetch(`${BASE}/labels`, {
     token,

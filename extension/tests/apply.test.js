@@ -53,14 +53,65 @@ describe("pipeline.applyOne", () => {
     assert.deepEqual(await store.getInbox(), {});
   });
 
-  test("Star: add STARRED, remove INBOX", async () => {
-    seedSuggestion(shim.storage, { emailId: "m1", from: "Mom", subject: "Dinner", action: "Star" });
+  test("Star: Yellow with cached label → STARRED + custom label, remove INBOX", async () => {
+    shim.storage.sync.set("starLabelIdsV2", { yellow: "Label_42", red: "Label_43", redBang: "Label_44" });
+    seedSuggestion(shim.storage, { emailId: "m1", from: "Mom", subject: "Dinner", action: "Star: Yellow" });
     const r = await pipeline.applyOne("m1");
     assert.equal(r.ok, true);
     assert.deepEqual(JSON.parse(fetchCalls[0].opts.body), {
-      addLabelIds: ["STARRED"],
+      addLabelIds: ["STARRED", "Label_42"],
       removeLabelIds: ["INBOX"],
     });
+  });
+  test("Star: Red with cached label → STARRED + custom label, remove INBOX", async () => {
+    shim.storage.sync.set("starLabelIdsV2", { yellow: "Label_42", red: "Label_43", redBang: "Label_44" });
+    seedSuggestion(shim.storage, { emailId: "m1", from: "Alex", subject: "PR", action: "Star: Red" });
+    const r = await pipeline.applyOne("m1");
+    assert.equal(r.ok, true);
+    assert.deepEqual(JSON.parse(fetchCalls[0].opts.body), {
+      addLabelIds: ["STARRED", "Label_43"],
+      removeLabelIds: ["INBOX"],
+    });
+  });
+  test("Star: Red bang with cached label → STARRED + custom label, remove INBOX", async () => {
+    shim.storage.sync.set("starLabelIdsV2", { yellow: "Label_42", red: "Label_43", redBang: "Label_44" });
+    seedSuggestion(shim.storage, { emailId: "m1", from: "Boss", subject: "URGENT", action: "Star: Red bang" });
+    const r = await pipeline.applyOne("m1");
+    assert.equal(r.ok, true);
+    assert.deepEqual(JSON.parse(fetchCalls[0].opts.body), {
+      addLabelIds: ["STARRED", "Label_44"],
+      removeLabelIds: ["INBOX"],
+    });
+  });
+
+  test("Star: Yellow creates label on first use and caches id", async () => {
+    seedSuggestion(shim.storage, { emailId: "m1", from: "Mom", subject: "Dinner", action: "Star: Yellow" });
+
+    const seen = [];
+    globalThis.fetch = async (url, opts) => {
+      seen.push({ url, method: opts.method || "GET", body: opts.body });
+      if (url.endsWith("/labels") && (!opts.method || opts.method === "GET")) {
+        return new Response(JSON.stringify({ labels: [] }), { status: 200 });
+      }
+      if (url.endsWith("/labels") && opts.method === "POST") {
+        return new Response(JSON.stringify({ id: "Label_77", name: "Star/Yellow" }), { status: 200 });
+      }
+      return new Response("{}", { status: 200 });
+    };
+
+    const r = await pipeline.applyOne("m1");
+    assert.equal(r.ok, true);
+    assert.equal(seen.length, 3);
+    assert.match(seen[0].url, /\/labels$/); assert.equal(seen[0].method, "GET");
+    assert.match(seen[1].url, /\/labels$/); assert.equal(seen[1].method, "POST");
+    assert.match(seen[2].url, /\/messages\/m1\/modify$/);
+    assert.deepEqual(JSON.parse(seen[2].body), {
+      addLabelIds: ["STARRED", "Label_77"],
+      removeLabelIds: ["INBOX"],
+    });
+
+    const cached = shim.storage.sync.get("starLabelIdsV2");
+    assert.deepEqual(cached, { yellow: "Label_77" });
   });
 
   test("Move: Follow-up creates label on first use and caches id", async () => {
@@ -242,7 +293,7 @@ describe("pipeline.applyAll", () => {
     shim.storage.sync.set("settings", { dryRun: true });   // skip network
     shim.storage.local.set("suggestions", {
       m1: { emailId: "m1", from: "a", subject: "b", action: "Archive" },
-      m2: { emailId: "m2", from: "c", subject: "d", action: "Star" },
+      m2: { emailId: "m2", from: "c", subject: "d", action: "Star: Yellow" },
       m3: { emailId: "m3", from: "e", subject: "f", action: "Leave alone" },
     });
 

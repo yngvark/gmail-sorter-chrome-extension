@@ -12,8 +12,6 @@ export const MSG = Object.freeze({
   APPLY_ONE:       "APPLY_ONE",        // apply the action for one suggestion
   APPLY_ALL:       "APPLY_ALL",        // apply every pending suggestion
 
-  PROBE_SUPERSTAR: "PROBE_SUPERSTAR",  // dev-only: test whether ^ss_* labels are writable
-
   GET_DIAG:        "GET_DIAG",         // returns the redacted diagnostics ring buffer
   CLEAR_DIAG:      "CLEAR_DIAG",       // empties the diagnostics ring buffer
 });

@@ -491,8 +491,12 @@ body {
 .action-pill:active { transform: translateY(0); }
 
 /* Action-specific tints (matches semantic meaning) */
-.action-pill[data-action="Star"]              { border-color: var(--gold); color: var(--gold); }
-.action-pill[data-action="Star"]:hover        { background: var(--gold); color: var(--paper); }
+.action-pill[data-action="Star: Yellow"]       { border-color: var(--gold); color: var(--gold); }
+.action-pill[data-action="Star: Yellow"]:hover { background: var(--gold); color: var(--paper); }
+.action-pill[data-action="Star: Red"]          { border-color: var(--sienna); color: var(--sienna); }
+.action-pill[data-action="Star: Red"]:hover    { background: var(--sienna); color: var(--paper); }
+.action-pill[data-action="Star: Red bang"]       { border-color: var(--sienna); color: var(--sienna); }
+.action-pill[data-action="Star: Red bang"]:hover { background: var(--sienna); color: var(--paper); }
 .action-pill[data-action="Archive"]           { border-color: var(--forest); color: var(--forest); }
 .action-pill[data-action="Archive"]:hover     { background: var(--forest); color: var(--paper); }
 .action-pill[data-action^="Move:"]            { border-color: var(--ink-2); color: var(--ink-2); }

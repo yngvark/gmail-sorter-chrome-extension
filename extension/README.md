@@ -177,12 +177,15 @@ Reference: [Keep consistent extension ID](https://developer.chrome.com/docs/exte
 2. Click **Classify inbox** — the extension fetches your inbox (default
    50 most recent), asks Ollama about each one, and streams suggestions
    into the panel.
-3. Click an action pill (**Star**, **Archive**, **Move: Follow-up**,
-   **Mark read**) to apply that action to that email.
+3. Click an action pill (**Star: Yellow**, **Star: Red**, **Star: Red
+   bang**, **Archive**, **Move: Follow-up**, **Mark read**) to apply
+   that action to that email.
 4. Or click **Apply all** to apply every pending suggestion.
 
 Dry-run mode in the options page lets you audit the classifier without
 mutating Gmail.
+
+The first time you apply each star variant or a follow-up, the extension creates a small color-coded Gmail label (`Star/Yellow`, `Star/Red`, `Star/RedBang`, `Follow-up`) and reuses it on every subsequent apply. The forward slashes nest the three star labels under a `Star` parent in Gmail's label list.
 
 ## Architecture
 

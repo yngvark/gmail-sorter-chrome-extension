@@ -121,10 +121,10 @@ describe("pipeline.classifyInbox", () => {
     ];
     seedInbox(shim.storage, rows);
 
-    // Ollama mock: m1 → Archive, m2 → Star. Route by request body.
+    // Ollama mock: m1 → Archive, m2 → Star: Yellow. Route by request body.
     mockFetch(gmailRouter(rows, async (_url, opts) => {
       const msg = JSON.parse(opts.body).messages.find((m) => m.role === "user");
-      const action = msg.content.includes("Stripe") ? "Archive" : "Star";
+      const action = msg.content.includes("Stripe") ? "Archive" : "Star: Yellow";
       return new Response(
         JSON.stringify({ message: { content: JSON.stringify({ action }) } }),
         { status: 200 },
@@ -139,7 +139,7 @@ describe("pipeline.classifyInbox", () => {
     const suggestions = await store.getSuggestions();
     assert.deepEqual(Object.keys(suggestions).sort(), ["m1", "m2"]);
     assert.equal(suggestions.m1.action, "Archive");
-    assert.equal(suggestions.m2.action, "Star");
+    assert.equal(suggestions.m2.action, "Star: Yellow");
 
     const progress = shim.storage.session.get("classifyProgress");
     assert.equal(progress.classifying, false);
@@ -194,7 +194,7 @@ describe("pipeline.classifyInbox", () => {
     ];
     seedInbox(shim.storage, rows);
     shim.storage.local.set("suggestions", {
-      m1: { emailId: "m1", from: "a", subject: "b", action: "Star" },
+      m1: { emailId: "m1", from: "a", subject: "b", action: "Star: Yellow" },
     });
 
     let callCount = 0;
@@ -211,7 +211,7 @@ describe("pipeline.classifyInbox", () => {
     assert.equal(callCount, 1);
 
     const suggestions = await store.getSuggestions();
-    assert.equal(suggestions.m1.action, "Star", "existing suggestion preserved");
+    assert.equal(suggestions.m1.action, "Star: Yellow", "existing suggestion preserved");
     assert.equal(suggestions.m2.action, "Archive", "new suggestion added");
   });
 

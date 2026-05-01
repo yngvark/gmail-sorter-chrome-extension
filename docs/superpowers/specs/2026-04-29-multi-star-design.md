@@ -197,3 +197,29 @@ If step 3 fails for any variant, halt and reopen the design.
 4. Apply-path test confirms end-to-end.
 5. E2E story updates.
 6. Manual verification flow on a real inbox.
+
+## Pivot — 2026-05-01
+
+**Outcome of verification probe:** Both `messages.modify` and `threads.modify` rejected writes to superstar label IDs (`^ss_sr`, `^ss_sy`, `^ss_cr`) with `400 Invalid label`. Gmail UI network capture confirmed the IDs are correct and properly formatted — the issue is not label syntax. Gmail's UI applies superstar labels via an internal RPC the public REST API cannot reach.
+
+**Conclusion:** The public Gmail REST API does not permit writes to `^ss_*` superstar labels. This design is invalid as written.
+
+**Pivot implementation (commit 71aedab):** Replace superstar label IDs with custom user-labels bearing the same visual intent (name + color). Each star variant now applies:
+
+- The system `STARRED` label (so all stars are visible via `is:starred`).
+- A custom user-label whose name matches the action and whose color encodes the priority:
+  - `Star: Yellow` — bg `#fad165` / text `#594c05`
+  - `Star: Red` — bg `#cc3a21` / text `#ffffff`
+  - `Star: Red bang` — bg `#ac2b16` / text `#ffffff`
+
+Labels are lazy-created on first apply and cached in `chrome.storage.sync`, mirroring the existing `Move: Follow-up` pattern. The star action also removes `INBOX` (archives).
+
+**User migration required:** The user's Multiple Inboxes panes are configured with star-based queries (e.g. `has:yellow-star`). After this change, those panes see only the system `STARRED` label and no colors. To preserve per-priority panes, the user must reconfigure each pane's search query in Gmail Settings → Inbox → Multiple Inboxes:
+
+- `has:yellow-star` → `label:"Star: Yellow"`
+- `has:red-star` → `label:"Star: Red"`
+- `has:red-bang` → `label:"Star: Red bang"`
+
+This is a one-time manual step; subsequent applies reuse the cached label IDs.
+
+**Cleanup:** All dev probe diagnostics (`probeSuperstar`, `probeAllSuperstars`, `probeSuperstarThread`, `probeAllSuperstarsThread`, `MSG.PROBE_SUPERSTAR`, `MSG.PROBE_SUPERSTAR_THREAD`, dev buttons, `superstar.test.js`) were removed in the same commit since they served their one-time verification purpose.

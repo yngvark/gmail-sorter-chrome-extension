@@ -204,6 +204,47 @@ export async function ensureFollowUpLabel(token) {
   return created.id;
 }
 
+// ------------------------ Star variant labels (lazy) ------------------------
+//
+// Gmail's superstar IDs (^ss_sy, ^ss_sr, ^ss_cr) are not writable via the
+// public REST API — confirmed via probe. The fallback that survived review
+// is custom user-labels with colours from Gmail's fixed palette, applied
+// alongside the system STARRED label. Each variant gets its own label so
+// users can filter / search by variant in Gmail.
+
+const STAR_LABEL_SPECS = Object.freeze({
+  yellow:  { name: "Star/Yellow",  color: { backgroundColor: "#fad165", textColor: "#594c05" } },
+  red:     { name: "Star/Red",     color: { backgroundColor: "#cc3a21", textColor: "#ffffff" } },
+  redBang: { name: "Star/RedBang", color: { backgroundColor: "#ac2b16", textColor: "#ffffff" } },
+});
+
+// Returns the Gmail label id for a star-variant label, lazy-creating it
+// the first time it's needed. Cache lives at store.KEYS.STAR_LABEL_IDS as
+// { yellow, red, redBang } in chrome.storage.sync. Mirrors ensureFollowUpLabel.
+export async function ensureStarLabel(token, variant) {
+  const spec = STAR_LABEL_SPECS[variant];
+  if (!spec) throw new Error(`unknown star variant: ${variant}`);
+
+  const cached = await store.get("sync", store.KEYS.STAR_LABEL_IDS, {});
+  if (cached[variant]) return cached[variant];
+
+  // Pick up an existing label if the user already has one with this name
+  // (e.g. created by a previous extension version or by hand).
+  const labels = await gmail.listLabels(token);
+  const existing = labels.find((l) => l.name === spec.name);
+  let id;
+  if (existing) {
+    id = existing.id;
+  } else {
+    const created = await gmail.createLabel(token, spec);
+    id = created.id;
+  }
+
+  const next = { ...cached, [variant]: id };
+  await store.set("sync", store.KEYS.STAR_LABEL_IDS, next);
+  return id;
+}
+
 // ------------------------ applyOne ------------------------
 
 export async function applyOne(emailId) {
@@ -228,7 +269,8 @@ export async function applyOne(emailId) {
     return r;
   }
 
-  let diff = actionToLabelDiff(sugg.action);
+  const starLabelIdsCache = await store.get("sync", store.KEYS.STAR_LABEL_IDS, {});
+  let diff = actionToLabelDiff(sugg.action, { starLabelIds: starLabelIdsCache });
 
   // Unmapped action: the suggestion's action string didn't match any case
   // in actionToLabelDiff (typo, wrong case, garbled model output). DO NOT
@@ -278,6 +320,24 @@ export async function applyOne(emailId) {
     }
   }
 
+  // Lazy-create the star-variant label if this is the first apply for that variant.
+  if (diff.needsStarLabel) {
+    try {
+      const labelId = await ensureStarLabel(token, diff.needsStarLabel);
+      diff = actionToLabelDiff(sugg.action, {
+        starLabelIds: { ...starLabelIdsCache, [diff.needsStarLabel]: labelId },
+        followUpLabelId: undefined,
+      });
+    } catch (err) {
+      await store.putApplyError(emailId, `Could not create star label: ${err.message}`);
+      const result = { ok: false, error: { kind: "gmail", message: err.message } };
+      await store.appendDiag({
+        kind: "apply_one.done", emailId, ok: false, errorKind: result.error.kind,
+      });
+      return result;
+    }
+  }
+
   try {
     await gmail.modifyLabels(token, emailId, { add: diff.add, remove: diff.remove });
     await store.deleteSuggestion(emailId);
@@ -309,18 +369,6 @@ async function emitApplyOneFailure(emailId, action, result) {
     errorKind: result?.error?.kind,
     ...(action ? { action } : {}),
   });
-}
-
-// ------------------------ Superstar probe (dev) ------------------------
-
-export async function probeSuperstar({ emailId, variant = "red" } = {}) {
-  const inbox = await store.getInbox();
-  const row = emailId ? inbox[emailId] : Object.values(inbox)[0];
-  if (!row) return { error: "inbox is empty — run fetchInbox first" };
-  const token = await getToken({ interactive: true });
-  const result = await gmail.probeSuperstar(token, row.id, variant);
-  console.log("[gmail-sorter] superstar probe →", result);
-  return result;
 }
 
 async function removeFromInbox(emailId) {
