@@ -1,26 +1,48 @@
 /* ------------------------------------------------------------------
    Gmail Sorter — side panel
-   Aesthetic: warm paper palette with Gmail's font stack so text in the
-   panel matches the inbox it sits next to.
+   Aesthetic: refined dark, editorial tech. Deep ink surfaces with a
+   single saffron signal accent. Italic display headings preserve the
+   "Inbox Gazette" character; semantic action colors are tuned for
+   readability against dark surfaces.
    ------------------------------------------------------------------ */
 
 :root {
-  /* Palette */
-  --paper:       #f3ede1;    /* warm cream */
-  --paper-2:     #ebe2d0;    /* slightly deeper, for hover surfaces */
-  --ink:         #1c1915;    /* deep warm black */
-  --ink-2:       #4a433a;    /* muted body text */
-  --ink-3:       #7a7063;    /* captions, counters */
-  --rule:        #c9bfae;    /* hairlines */
-  --rule-soft:   #e2d9c6;
-  --forest:      #2f4a2e;    /* primary accent */
-  --forest-2:    #3d5b3a;    /* forest hover */
-  --sienna:      #a8532a;    /* error / warning */
-  --gold:        #b7903c;    /* subtle highlight */
+  /* Surfaces — top-down by elevation */
+  --ink-0:        #0d0e12;            /* deepest, body bg */
+  --ink-1:        #14161c;            /* primary surface */
+  --ink-2:        #1c1f29;            /* raised — cards, banners */
+  --ink-3:        #262a37;            /* hover surface */
+  --rule:         #2d3242;            /* hairline borders */
+  --rule-soft:    #1a1d27;            /* whisper-quiet separators */
 
-  /* Typography — match Gmail's font stack (Google Sans → Roboto → fallbacks).
-     Names kept (--serif-*, --sans) to avoid touching every call site;
-     they all resolve to the same family now. */
+  /* Foreground */
+  --paper:        #f1ebdf;            /* primary text — warm off-white */
+  --paper-2:      #c8c1b3;            /* secondary text */
+  --paper-3:      #847d6f;            /* tertiary, captions */
+  --paper-4:      #524d44;            /* very muted */
+
+  /* Signal — single accent across the UI */
+  --accent:       #f4b740;            /* saffron */
+  --accent-hi:    #ffd06b;            /* lighter saffron, hover */
+  --accent-soft:  rgba(244,183,64,0.14);
+  --accent-glow:  rgba(244,183,64,0.30);
+
+  /* Semantic action colors — distinct hues, all dark-surface readable */
+  --gold:         #f4b740;            /* Star: Yellow */
+  --gold-soft:    rgba(244,183,64,0.12);
+  --coral:        #ff6360;            /* Star: Red */
+  --coral-soft:   rgba(255,99,96,0.12);
+  --coral-hot:    #ff3b3b;            /* Star: Red bang — punchier */
+  --coral-hot-soft: rgba(255,59,59,0.16);
+  --mint:         #5fe2a8;            /* Archive */
+  --mint-soft:    rgba(95,226,168,0.12);
+  --violet:       #a594ff;            /* Move: Follow-up */
+  --violet-soft:  rgba(165,148,255,0.14);
+  --slate:        #8896a8;            /* Mark read */
+  --slate-soft:   rgba(136,150,168,0.14);
+
+  /* Type stack — keep Gmail kinship for body, italic display
+     creates the editorial cadence without bundling a custom font. */
   --gmail-stack:   "Google Sans", "Roboto", "RobotoDraft", "Helvetica", "Arial", sans-serif;
   --serif-display: var(--gmail-stack);
   --serif-body:    var(--gmail-stack);
@@ -31,7 +53,7 @@
   /* Scale */
   --pad:           18px;
   --pad-lg:        24px;
-  --radius:        2px;       /* editorial = nearly square */
+  --radius:        4px;
   --radius-pill:   999px;
   --tx-fast:       140ms cubic-bezier(.2,.6,.2,1);
   --tx-med:        220ms cubic-bezier(.2,.6,.2,1);
@@ -43,31 +65,45 @@ html, body {
   margin: 0;
   padding: 0;
   min-height: 100vh;
-  background: var(--paper);
-  color: var(--ink);
+  background: var(--ink-0);
+  color: var(--paper);
   font-family: var(--serif-body);
-  font-size: 15px;
+  font-size: 14.5px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
   position: relative;
-  padding: 0 var(--pad) var(--pad) var(--pad);
+  padding: 0 var(--pad) var(--pad);
   min-width: 320px;
   overflow-x: hidden;
 }
 
-/* Subtle paper grain — pure CSS, no image asset */
+/* Atmospheric backdrop — saffron halo top-right, cool wash bottom-left.
+   Subtle enough you only register depth, not color. */
 .paper {
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 0;
   background:
-    radial-gradient(1200px 400px at 100% -5%, rgba(183,144,60,0.07), transparent 55%),
-    radial-gradient(900px 500px at -10% 110%, rgba(47,74,46,0.05), transparent 60%);
-  mix-blend-mode: multiply;
+    radial-gradient(720px 360px at 100% -10%, rgba(244,183,64,0.07), transparent 55%),
+    radial-gradient(900px 500px at -10% 110%, rgba(124,142,255,0.04), transparent 60%);
+}
+
+/* Faint vertical scanline texture — adds the only "newsroom-press" trace. */
+.paper::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(255,255,255,0.012) 0 1px,
+    transparent 1px 3px
+  );
+  mix-blend-mode: screen;
 }
 
 /* ---------------- Masthead ---------------- */
@@ -75,55 +111,68 @@ body {
 .masthead {
   position: relative;
   z-index: 1;
-  padding: var(--pad-lg) 0 12px;
+  padding: 26px 0 14px;
   text-align: center;
 }
 
 .eyebrow {
   font-family: var(--sans);
   font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.22em;
+  font-weight: 600;
+  letter-spacing: 0.28em;
   text-transform: uppercase;
-  color: var(--ink-3);
-  margin-bottom: 6px;
+  color: var(--accent);
+  margin-bottom: 8px;
+  /* Tiny diamond bullets either side, drawn with ::before/::after */
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.eyebrow::before,
+.eyebrow::after {
+  content: "";
+  width: 4px;
+  height: 4px;
+  background: var(--accent);
+  transform: rotate(45deg);
+  display: inline-block;
 }
 
 .title {
   font-family: var(--serif-display);
-  font-size: 30px;
+  font-size: 32px;
   font-weight: 400;
   font-style: italic;
-  letter-spacing: -0.01em;
-  color: var(--ink);
+  letter-spacing: -0.015em;
+  color: var(--paper);
   margin: 0;
-  line-height: 1.1;
+  line-height: 1.05;
 }
 
 .rule {
-  margin: 14px auto 0;
+  margin: 16px auto 0;
   height: 1px;
   width: 100%;
   background: linear-gradient(
     90deg,
     transparent 0%,
-    var(--rule) 15%,
-    var(--rule) 85%,
+    var(--rule) 18%,
+    var(--rule) 82%,
     transparent 100%
   );
   position: relative;
 }
 
 .rule::after {
-  content: "❦";
+  content: "";
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%);
-  background: var(--paper);
-  padding: 0 10px;
-  color: var(--ink-3);
-  font-size: 12px;
+  width: 5px;
+  height: 5px;
+  background: var(--accent);
+  transform: translate(-50%, -50%) rotate(45deg);
+  box-shadow: 0 0 0 4px var(--ink-0);
 }
 
 /* ---------------- Content wrapper ---------------- */
@@ -137,59 +186,63 @@ body {
 /* ---------------- Error banner ---------------- */
 
 .banner {
-  border: 1px solid var(--sienna);
+  border: 1px solid rgba(255,99,96,0.45);
+  border-left: 3px solid var(--coral);
   padding: 14px 14px 12px;
   margin-bottom: 18px;
   background:
-    repeating-linear-gradient(
-      135deg,
-      rgba(168,83,42,0.04) 0 6px,
-      transparent 6px 12px
-    ),
-    var(--paper);
+    linear-gradient(180deg, rgba(255,99,96,0.06), transparent 60%),
+    var(--ink-2);
+  border-radius: var(--radius);
   position: relative;
 }
 
 .banner__title {
   font-family: var(--serif-display);
+  font-style: italic;
   font-weight: 600;
-  font-size: 15px;
-  color: var(--sienna);
+  font-size: 16px;
+  color: var(--paper);
   margin-bottom: 4px;
+  letter-spacing: -0.005em;
 }
 
 .banner__body {
-  margin: 0 0 8px;
+  margin: 0 0 10px;
   font-size: 13px;
-  color: var(--ink-2);
+  color: var(--paper-2);
 }
 
 .banner__code {
   display: block;
   font-family: var(--mono);
   font-size: 11.5px;
-  padding: 8px 10px;
-  background: var(--ink);
-  color: var(--paper);
+  padding: 9px 11px;
+  background: var(--ink-0);
+  color: var(--accent-hi);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
   overflow-x: auto;
   white-space: nowrap;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .banner__copy {
   font-family: var(--sans);
-  font-size: 11px;
-  padding: 4px 10px;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 5px 12px;
   background: transparent;
-  border: 1px solid var(--sienna);
-  color: var(--sienna);
+  border: 1px solid var(--coral);
+  color: var(--coral);
   cursor: pointer;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
+  border-radius: var(--radius-pill);
   transition: background var(--tx-fast), color var(--tx-fast);
 }
 
-.banner__copy:hover { background: var(--sienna); color: var(--paper); }
+.banner__copy:hover { background: var(--coral); color: var(--ink-0); }
 .banner__copy:active { transform: translateY(1px); }
 
 /* ---------------- Apply-error toasts ---------------- */
@@ -202,11 +255,11 @@ body {
 }
 
 .toast {
-  border: 1px solid var(--sienna);
-  padding: 8px 32px 8px 12px;
-  background:
-    repeating-linear-gradient(135deg, rgba(168,83,42,0.04) 0 6px, transparent 6px 12px),
-    var(--paper);
+  border: 1px solid rgba(255,99,96,0.35);
+  border-left: 3px solid var(--coral);
+  padding: 9px 32px 8px 12px;
+  background: var(--ink-2);
+  border-radius: var(--radius);
   position: relative;
   font-size: 13px;
   line-height: 1.4;
@@ -215,15 +268,16 @@ body {
 
 .toast__title {
   font-family: var(--serif-display);
+  font-style: italic;
   font-weight: 600;
-  color: var(--sienna);
+  color: var(--coral);
   font-size: 13px;
   margin-bottom: 2px;
 }
 
 .toast__body {
   font-family: var(--serif-body);
-  color: var(--ink-2);
+  color: var(--paper-2);
   font-size: 12.5px;
   overflow-wrap: anywhere;
 }
@@ -235,12 +289,14 @@ body {
   background: transparent;
   border: 0;
   padding: 2px 6px;
-  color: var(--ink-3);
+  color: var(--paper-3);
   cursor: pointer;
   font-size: 14px;
   line-height: 1;
+  border-radius: 50%;
+  transition: color var(--tx-fast), background var(--tx-fast);
 }
-.toast__close:hover { color: var(--sienna); }
+.toast__close:hover { color: var(--paper); background: var(--ink-3); }
 
 /* ---------------- Dry-run pill ---------------- */
 
@@ -250,15 +306,16 @@ body {
   justify-content: space-between;
   gap: 8px;
   margin: 0 0 14px;
-  padding: 6px 12px;
-  border: 1px dashed var(--gold);
-  background: linear-gradient(90deg, rgba(183,144,60,0.08), transparent);
+  padding: 8px 12px;
+  border: 1px dashed var(--accent);
+  background: var(--accent-soft);
+  border-radius: var(--radius);
   font-family: var(--sans);
   font-size: 10.5px;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: var(--gold);
+  color: var(--accent-hi);
 }
 .dry-run-pill[hidden] { display: none; }
 
@@ -268,23 +325,24 @@ body {
   font-size: 11px;
   letter-spacing: 0;
   text-transform: none;
-  color: var(--ink-3);
+  color: var(--paper-3);
+  font-weight: 400;
 }
 
 /* ---------------- Primary action (Classify) ---------------- */
 
 .primary-action {
-  margin-bottom: 24px;
+  margin-bottom: 22px;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
 .btn {
-  font-family: var(--serif-display);
-  font-size: 16px;
-  font-weight: 500;
-  letter-spacing: 0.005em;
+  font-family: var(--sans);
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   padding: 12px 18px;
   border-radius: var(--radius);
   cursor: pointer;
@@ -300,36 +358,42 @@ body {
     box-shadow var(--tx-fast);
   position: relative;
   user-select: none;
+  border: 1px solid transparent;
 }
 
-.btn:disabled {
-  cursor: progress;
-  opacity: 0.7;
-}
+.btn:disabled { cursor: progress; opacity: 0.7; }
 
 .btn__count {
   font-family: var(--mono);
-  font-size: 12.5px;
+  font-size: 11.5px;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
   color: inherit;
   opacity: 0.85;
-  padding-left: 6px;
+  padding-left: 8px;
+  margin-left: 2px;
   border-left: 1px solid currentColor;
 }
 
 .btn--primary {
   width: 100%;
-  background: var(--forest);
-  color: var(--paper);
-  border: 1px solid var(--forest);
-  box-shadow: 0 1px 0 rgba(28,25,21,0.1), inset 0 1px 0 rgba(255,255,255,0.05);
+  background: var(--accent);
+  color: var(--ink-0);
+  border-color: var(--accent);
+  box-shadow:
+    0 1px 0 rgba(0,0,0,0.4),
+    0 0 0 0 var(--accent-glow),
+    inset 0 1px 0 rgba(255,255,255,0.18);
 }
 
 .btn--primary:hover:not(:disabled) {
-  background: var(--forest-2);
+  background: var(--accent-hi);
+  border-color: var(--accent-hi);
   transform: translateY(-1px);
-  box-shadow: 0 4px 10px rgba(47,74,46,0.22), inset 0 1px 0 rgba(255,255,255,0.06);
+  box-shadow:
+    0 6px 18px rgba(244,183,64,0.28),
+    0 0 0 4px var(--accent-soft),
+    inset 0 1px 0 rgba(255,255,255,0.2);
 }
 
 .btn--primary:active:not(:disabled) { transform: translateY(0); }
@@ -337,28 +401,30 @@ body {
 .btn--secondary {
   width: 100%;
   background: transparent;
-  color: var(--ink);
-  border: 1px solid var(--ink);
+  color: var(--paper);
+  border: 1px solid var(--rule);
 }
 
 .btn--secondary:hover:not(:disabled) {
-  background: var(--ink);
-  color: var(--paper);
+  background: var(--ink-2);
+  border-color: var(--paper-3);
 }
 
-/* Progress bar — appears below classify button while classifying */
+/* Progress bar — saffron, with a soft glow trailing the leading edge */
 .progress {
-  margin-top: 8px;
+  margin-top: 6px;
   height: 2px;
   background: var(--rule-soft);
   overflow: hidden;
   position: relative;
+  border-radius: 2px;
 }
 
 .progress__bar {
   height: 100%;
   width: 0%;
-  background: var(--forest);
+  background: linear-gradient(90deg, var(--accent) 0%, var(--accent-hi) 100%);
+  box-shadow: 0 0 12px var(--accent-glow);
   transition: width var(--tx-med);
 }
 
@@ -368,8 +434,8 @@ body {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  padding-bottom: 6px;
-  margin-bottom: 4px;
+  padding-bottom: 7px;
+  margin-bottom: 2px;
   border-bottom: 1px solid var(--rule);
 }
 
@@ -378,15 +444,15 @@ body {
   font-size: 10px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: var(--ink-3);
-  font-weight: 500;
+  color: var(--paper-3);
+  font-weight: 600;
 }
 
 .section-head__count {
   font-family: var(--mono);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
-  color: var(--ink-3);
+  color: var(--paper-3);
 }
 
 /* ---------------- Email list ---------------- */
@@ -401,10 +467,11 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 0 11px;
+  padding: 11px 0 10px;
   border-bottom: 1px solid var(--rule-soft);
   transition: opacity var(--tx-med), transform var(--tx-med),
-              max-height var(--tx-med), padding var(--tx-med);
+              max-height var(--tx-med), padding var(--tx-med),
+              background var(--tx-fast);
   max-height: 80px;
   overflow: hidden;
   position: relative;
@@ -413,6 +480,8 @@ body {
   transform: translateY(4px);
   animation: row-in var(--tx-med) forwards;
 }
+
+.email-row:hover { background: rgba(255,255,255,0.015); }
 
 .email-row:nth-child(1)  { animation-delay: 20ms; }
 .email-row:nth-child(2)  { animation-delay: 60ms; }
@@ -441,21 +510,23 @@ body {
 }
 
 .email-row__from {
-  font-family: var(--serif-display);
+  font-family: var(--serif-body);
   font-weight: 600;
-  font-size: 15px;
-  color: var(--ink);
+  font-size: 13.5px;
+  color: var(--paper);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   line-height: 1.25;
+  letter-spacing: -0.005em;
 }
 
 .email-row__subject {
   font-family: var(--serif-body);
   font-style: italic;
-  font-size: 13px;
-  color: var(--ink-2);
+  font-weight: 400;
+  font-size: 12.5px;
+  color: var(--paper-2);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -463,46 +534,112 @@ body {
   margin-top: 2px;
 }
 
-/* Action pill */
+/* ---------------- Action pills ----------------
+   Each action uses a tinted, low-alpha background tile with the action's
+   accent text, no border by default. Hover/click lifts to solid fill.
+   This keeps the row legible while still color-coding each suggestion.
+   ------------------------------------------------------------------ */
+
 .action-pill {
   flex-shrink: 0;
   font-family: var(--sans);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.09em;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding: 6px 12px;
+  padding: 6px 11px;
   border-radius: var(--radius-pill);
-  background: var(--paper);
-  color: var(--ink);
-  border: 1px solid var(--ink);
+  background: var(--ink-2);
+  color: var(--paper-2);
+  border: 1px solid var(--rule);
   cursor: pointer;
   transition: background var(--tx-fast), color var(--tx-fast),
-              transform var(--tx-fast), border-color var(--tx-fast);
+              transform var(--tx-fast), border-color var(--tx-fast),
+              box-shadow var(--tx-fast);
   white-space: nowrap;
 }
 
-.action-pill:hover {
-  background: var(--ink);
-  color: var(--paper);
-  transform: translateY(-1px);
-}
-
+.action-pill:hover { transform: translateY(-1px); }
 .action-pill:active { transform: translateY(0); }
 
-/* Action-specific tints (matches semantic meaning) */
-.action-pill[data-action="Star: Yellow"]       { border-color: var(--gold); color: var(--gold); }
-.action-pill[data-action="Star: Yellow"]:hover { background: var(--gold); color: var(--paper); }
-.action-pill[data-action="Star: Red"]          { border-color: var(--sienna); color: var(--sienna); }
-.action-pill[data-action="Star: Red"]:hover    { background: var(--sienna); color: var(--paper); }
-.action-pill[data-action="Star: Red bang"]       { border-color: var(--sienna); color: var(--sienna); }
-.action-pill[data-action="Star: Red bang"]:hover { background: var(--sienna); color: var(--paper); }
-.action-pill[data-action="Archive"]           { border-color: var(--forest); color: var(--forest); }
-.action-pill[data-action="Archive"]:hover     { background: var(--forest); color: var(--paper); }
-.action-pill[data-action^="Move:"]            { border-color: var(--ink-2); color: var(--ink-2); }
-.action-pill[data-action^="Move:"]:hover      { background: var(--ink-2); color: var(--paper); }
-.action-pill[data-action="Mark read"]         { border-color: var(--ink-3); color: var(--ink-3); }
-.action-pill[data-action="Mark read"]:hover   { background: var(--ink-3); color: var(--paper); }
+/* Star: Yellow → saffron/gold */
+.action-pill[data-action="Star: Yellow"] {
+  background: var(--gold-soft);
+  border-color: rgba(244,183,64,0.35);
+  color: var(--gold);
+}
+.action-pill[data-action="Star: Yellow"]:hover {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--ink-0);
+  box-shadow: 0 4px 14px rgba(244,183,64,0.3);
+}
+
+/* Star: Red → coral */
+.action-pill[data-action="Star: Red"] {
+  background: var(--coral-soft);
+  border-color: rgba(255,99,96,0.35);
+  color: var(--coral);
+}
+.action-pill[data-action="Star: Red"]:hover {
+  background: var(--coral);
+  border-color: var(--coral);
+  color: var(--ink-0);
+  box-shadow: 0 4px 14px rgba(255,99,96,0.3);
+}
+
+/* Star: Red bang → hotter coral, slightly bolder */
+.action-pill[data-action="Star: Red bang"] {
+  background: var(--coral-hot-soft);
+  border-color: rgba(255,59,59,0.5);
+  color: var(--coral-hot);
+  font-weight: 700;
+}
+.action-pill[data-action="Star: Red bang"]:hover {
+  background: var(--coral-hot);
+  border-color: var(--coral-hot);
+  color: var(--ink-0);
+  box-shadow: 0 4px 14px rgba(255,59,59,0.4);
+}
+
+/* Archive → mint */
+.action-pill[data-action="Archive"] {
+  background: var(--mint-soft);
+  border-color: rgba(95,226,168,0.3);
+  color: var(--mint);
+}
+.action-pill[data-action="Archive"]:hover {
+  background: var(--mint);
+  border-color: var(--mint);
+  color: var(--ink-0);
+  box-shadow: 0 4px 14px rgba(95,226,168,0.28);
+}
+
+/* Move: Follow-up → violet */
+.action-pill[data-action^="Move:"] {
+  background: var(--violet-soft);
+  border-color: rgba(165,148,255,0.35);
+  color: var(--violet);
+}
+.action-pill[data-action^="Move:"]:hover {
+  background: var(--violet);
+  border-color: var(--violet);
+  color: var(--ink-0);
+  box-shadow: 0 4px 14px rgba(165,148,255,0.3);
+}
+
+/* Mark read → slate (quietest) */
+.action-pill[data-action="Mark read"] {
+  background: var(--slate-soft);
+  border-color: rgba(136,150,168,0.3);
+  color: var(--slate);
+}
+.action-pill[data-action="Mark read"]:hover {
+  background: var(--slate);
+  border-color: var(--slate);
+  color: var(--ink-0);
+  box-shadow: 0 4px 14px rgba(136,150,168,0.25);
+}
 
 /* ---------------- Empty state ---------------- */
 
@@ -510,14 +647,14 @@ body {
   margin: 22px 0 0;
   text-align: center;
   font-style: italic;
-  color: var(--ink-3);
+  color: var(--paper-3);
   font-size: 13.5px;
   line-height: 1.5;
 }
 
 .empty-state em {
   font-style: italic;
-  color: var(--ink-2);
+  color: var(--paper);
   border-bottom: 1px dotted var(--rule);
 }
 
@@ -537,16 +674,17 @@ body {
 
 .footer__link {
   font-family: var(--sans);
-  font-size: 11px;
-  letter-spacing: 0.2em;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: var(--ink-3);
+  color: var(--paper-3);
   text-decoration: none;
   align-self: center;
   transition: color var(--tx-fast);
 }
 
-.footer__link:hover { color: var(--ink); }
+.footer__link:hover { color: var(--accent); }
 
 /* Dev tools — gated on ?dev=1 query param, hidden in production */
 .dev-tools {
@@ -567,13 +705,14 @@ body {
   padding: 3px 8px;
   background: transparent;
   border: 1px dashed var(--rule);
-  color: var(--ink-3);
+  color: var(--paper-3);
   cursor: pointer;
+  border-radius: 2px;
 }
-.dev-btn:hover { color: var(--ink); border-color: var(--ink-3); }
+.dev-btn:hover { color: var(--paper); border-color: var(--paper-3); }
 
 .dev-result {
-  color: var(--ink-3);
+  color: var(--paper-3);
   font-variant-numeric: tabular-nums;
 }
 
