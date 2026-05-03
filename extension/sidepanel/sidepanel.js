@@ -8,7 +8,7 @@
 
 import { MSG } from "../lib/messages.js";
 import { KEYS } from "../background/storage.js";
-import { ACTIONS, DEFAULT_SETTINGS } from "../lib/schema.js";
+import { ACTIONS, DEFAULT_SETTINGS, META_PROMPT } from "../lib/schema.js";
 import { actionPillContent, ACTION_ICONS } from "./sidepanel-pill.js";
 
 // ------------------------ Config ------------------------
@@ -53,6 +53,10 @@ const state = {
   lastError: null,            // { kind, message, hint } from storage.session
   applyErrors: {},            // { [emailId]: { message } }
   settings: DEFAULT_SETTINGS,
+  disagreements: [],          // [{ emailId, predictedAction, chosenAction, from, subject, snippet, ts }]
+  improving: false,
+  improveError: null,         // { kind, message, hint? }
+  rulesEditDirty: false,      // local: true while textarea diverges from saved
 };
 
 function arrayToById(arr) {
@@ -107,6 +111,15 @@ const els = {
   devFetchBtn:    document.getElementById("dev-fetch-btn"),
   devClassifyBtn: document.getElementById("dev-classify-btn"),
   devResult:      document.getElementById("dev-result"),
+  mappingSystem:    document.getElementById("mapping-system"),
+  mappingRules:     document.getElementById("mapping-rules"),
+  mappingSaveBtn:   document.getElementById("mapping-save-btn"),
+  mappingSaveStatus:document.getElementById("mapping-save-status"),
+  mappingDisCount:  document.getElementById("mapping-dis-count"),
+  mappingDisList:   document.getElementById("mapping-dis-list"),
+  mappingMeta:      document.getElementById("mapping-meta"),
+  improveBtn:       document.getElementById("improve-btn"),
+  mappingError:     document.getElementById("mapping-error"),
 };
 
 // ------------------------ Rendering ------------------------
@@ -305,6 +318,64 @@ function renderDryRunPill() {
   els.dryRunPill.hidden = !state.settings?.dryRun;
 }
 
+function buildSystemMessage(rules) {
+  // Mirrors classify.js buildMessages — kept in sync manually. If the
+  // classifier prompt changes, update here too.
+  const actionList = ACTIONS.map((a) => `  - ${a}`).join("\n");
+  return `You classify emails. Choose exactly one action from this list for each email:
+
+${actionList}
+
+Rules:
+${rules}
+
+Respond with strict JSON: {"action": "<one of the actions above>"}. No prose. No explanation.`;
+}
+
+function renderMapping() {
+  const rules = state.settings?.rules || "";
+  els.mappingSystem.textContent = buildSystemMessage(rules);
+  els.mappingMeta.textContent   = META_PROMPT;
+
+  if (!state.rulesEditDirty && document.activeElement !== els.mappingRules) {
+    els.mappingRules.value = rules;
+  }
+
+  // Disagreement list
+  const list = state.disagreements;
+  els.mappingDisCount.textContent = String(list.length);
+  els.mappingDisList.replaceChildren();
+  for (const d of list) {
+    const li = document.createElement("li");
+    const line = document.createElement("div");
+    line.className = "mapping__dis-line";
+    line.textContent = `${d.from} — ${d.subject} — predicted: ${d.predictedAction} → chose: ${d.chosenAction}`;
+    const snippet = document.createElement("div");
+    snippet.className = "mapping__dis-snippet";
+    snippet.textContent = d.snippet || "";
+    li.append(line, snippet);
+    els.mappingDisList.append(li);
+  }
+
+  // Improve button enable state
+  const canImprove =
+    list.length > 0 && !state.improving && !state.classifying;
+  els.improveBtn.disabled = !canImprove;
+  const lbl = els.improveBtn.querySelector(".btn__label");
+  lbl.textContent = state.improving ? "Improving…" : "Improve mapping prompt";
+
+  // Error block
+  if (state.improveError) {
+    els.mappingError.hidden = false;
+    els.mappingError.textContent =
+      `${state.improveError.message}` +
+      (state.improveError.hint ? `  — ${state.improveError.hint}` : "");
+  } else {
+    els.mappingError.hidden = true;
+    els.mappingError.textContent = "";
+  }
+}
+
 function render() {
   renderFetchButton();
   renderClassifyButton();
@@ -314,6 +385,7 @@ function render() {
   renderCorsBanner();
   renderToasts();
   renderDryRunPill();
+  renderMapping();
 }
 
 // ------------------------ Actions ------------------------
