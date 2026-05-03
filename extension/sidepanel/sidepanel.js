@@ -9,7 +9,7 @@
 import { MSG } from "../lib/messages.js";
 import { KEYS } from "../background/storage.js";
 import { ACTIONS, DEFAULT_SETTINGS } from "../lib/schema.js";
-import { actionPillContent } from "./sidepanel-pill.js";
+import { actionPillContent, ACTION_ICONS } from "./sidepanel-pill.js";
 
 // ------------------------ Config ------------------------
 
@@ -171,26 +171,32 @@ function renderEmails() {
       row.dataset.emailId = e.id;
       row.querySelector(".email-row__from").textContent = e.from || "(unknown)";
       row.querySelector(".email-row__subject").textContent = e.subject || "(no subject)";
-      const pill = row.querySelector(".action-pill");
-      pill.addEventListener("click", () => applyOne(e.id));
+      const actionRow = row.querySelector(".action-row");
+      for (const action of ACTIONS) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "action-btn";
+        btn.dataset.action = action;
+        const icon = document.createElement("span");
+        icon.className = "action-btn__icon";
+        icon.textContent = ACTION_ICONS[action];
+        const label = document.createElement("span");
+        label.className = "action-btn__label";
+        label.textContent = action;
+        btn.append(icon, label);
+        btn.addEventListener("click", () => applyOne(e.id, action));
+        actionRow.append(btn);
+      }
     }
-    // Append on every iteration: for a new row this inserts it; for an existing
-    // child this moves it to the current position. Without this, sortedInbox()
-    // ordering changes (e.g. after fetch populates internalDate) wouldn't be
-    // reflected in the DOM since matching rows are reused in their old slot.
+    // Append on every iteration so re-orders (e.g. internalDate sort) are
+    // reflected in the DOM, not just on first render.
     els.emailList.append(row);
 
+    // Mark the predicted button. If there's no suggestion yet, no button is highlighted.
     const sugg = state.suggestions[e.id];
-    const pill = row.querySelector(".action-pill");
-    if (sugg) {
-      const pillText = actionPillContent(sugg.action);
-      if (pill.textContent !== pillText) pill.textContent = pillText;
-      pill.dataset.action = sugg.action;
-      pill.hidden = false;
-    } else {
-      pill.hidden = true;
-      pill.removeAttribute("data-action");
-      pill.textContent = "";
+    const buttons = row.querySelectorAll(".action-btn");
+    for (const btn of buttons) {
+      btn.dataset.predicted = String(Boolean(sugg && btn.dataset.action === sugg.action));
     }
   }
 

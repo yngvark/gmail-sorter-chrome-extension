@@ -9,3 +9,15 @@ export function actionPillContent(action) {
   if (action === "Star: Red bang") return "❗ Star: Red bang";
   return action;
 }
+
+// Icons rendered inside each action button. Emoji keep this dependency-free
+// and visible at any font size. Refining to inline SVG is a separate change.
+export const ACTION_ICONS = Object.freeze({
+  "Star: Yellow":   "⭐",
+  "Star: Red":      "🔴",
+  "Star: Red bang": "‼️",
+  "Archive":        "📥",
+  "Mark read":      "✓",
+  "Move: Follow-up":"↪",
+  "Leave alone":    "💤",
+});

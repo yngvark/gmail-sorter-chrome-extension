@@ -724,3 +724,40 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---------- Action row ---------- */
+
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.4rem;
+}
+
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--rule-color, #444);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink-muted, #aaa);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: background 120ms, color 120ms, border-color 120ms;
+}
+
+.action-btn:hover {
+  border-color: var(--accent, #f0a040);
+  color: var(--ink, #eee);
+}
+
+.action-btn[data-predicted="true"] {
+  background: var(--accent, #f0a040);
+  border-color: var(--accent, #f0a040);
+  color: #1a1a1a;
+}
+
+.action-btn__icon { font-size: 0.9rem; line-height: 1; }

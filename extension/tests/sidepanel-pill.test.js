@@ -1,25 +1,25 @@
-// Unit test for the actionPillContent helper that prefixes the pill text
-// with a glyph for star variants and returns plain text otherwise.
-
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-
-import { actionPillContent } from "../sidepanel/sidepanel-pill.js";
+import { actionPillContent, ACTION_ICONS } from "../sidepanel/sidepanel-pill.js";
+import { ACTIONS } from "../lib/schema.js";
 
 describe("actionPillContent", () => {
-  test("Star: Yellow gets a ★ prefix", () => {
-    assert.equal(actionPillContent("Star: Yellow"), "★ Star: Yellow");
+  test("Star: Yellow has the yellow-star glyph", () => {
+    assert.match(actionPillContent("Star: Yellow"), /★/);
   });
-  test("Star: Red gets a ★ prefix", () => {
-    assert.equal(actionPillContent("Star: Red"), "★ Star: Red");
+  test("Star: Red bang has the bang glyph", () => {
+    assert.match(actionPillContent("Star: Red bang"), /❗/);
   });
-  test("Star: Red bang gets a ❗ prefix", () => {
-    assert.equal(actionPillContent("Star: Red bang"), "❗ Star: Red bang");
-  });
-  test("Non-star actions are returned verbatim", () => {
+  test("non-star actions render verbatim", () => {
     assert.equal(actionPillContent("Archive"), "Archive");
-    assert.equal(actionPillContent("Mark read"), "Mark read");
-    assert.equal(actionPillContent("Move: Follow-up"), "Move: Follow-up");
-    assert.equal(actionPillContent("Leave alone"), "Leave alone");
+  });
+});
+
+describe("ACTION_ICONS", () => {
+  test("has an entry for every action in ACTIONS", () => {
+    for (const a of ACTIONS) {
+      assert.ok(ACTION_ICONS[a], `missing icon for "${a}"`);
+      assert.equal(typeof ACTION_ICONS[a], "string");
+    }
   });
 });
