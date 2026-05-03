@@ -247,7 +247,7 @@ export async function ensureStarLabel(token, variant) {
 
 // ------------------------ applyOne ------------------------
 
-export async function applyOne(emailId) {
+export async function applyOne(emailId, chosenAction) {
   const suggestions = await store.getSuggestions();
   const sugg = suggestions[emailId];
   if (!sugg) {
@@ -256,7 +256,26 @@ export async function applyOne(emailId) {
     return result;
   }
 
-  await store.appendDiag({ kind: "apply_one.start", emailId, action: sugg.action });
+  // Disagreement capture: when the user picks an action different from the
+  // model's suggestion, record the pair so improvePrompt can learn from it.
+  // Apply the user's chosen action, not the predicted one.
+  let actionToApply = sugg.action;
+  if (chosenAction && chosenAction !== sugg.action) {
+    const inbox = await store.getInbox();
+    const row = inbox[emailId] || {};
+    await store.appendDisagreement({
+      emailId,
+      predictedAction: sugg.action,
+      chosenAction,
+      from:    row.from    || sugg.from    || "",
+      subject: row.subject || sugg.subject || "",
+      snippet: (row.snippet || "").slice(0, 200),
+      ts: Date.now(),
+    });
+    actionToApply = chosenAction;
+  }
+
+  await store.appendDiag({ kind: "apply_one.start", emailId, action: actionToApply });
   const settings = await store.getSettings();
 
   // Dry-run: skip the Gmail mutation entirely and just clear local state.
@@ -264,13 +283,13 @@ export async function applyOne(emailId) {
   if (settings.dryRun) {
     await store.deleteSuggestion(emailId);
     await removeFromInbox(emailId);
-    const r = { ok: true, applied: sugg.action, dryRun: true };
+    const r = { ok: true, applied: actionToApply, dryRun: true };
     await store.appendDiag({ kind: "apply_one.done", emailId, ok: true, dryRun: true });
     return r;
   }
 
   const starLabelIdsCache = await store.get("sync", store.KEYS.STAR_LABEL_IDS, {});
-  let diff = actionToLabelDiff(sugg.action, { starLabelIds: starLabelIdsCache });
+  let diff = actionToLabelDiff(actionToApply, { starLabelIds: starLabelIdsCache });
 
   // Unmapped action: the suggestion's action string didn't match any case
   // in actionToLabelDiff (typo, wrong case, garbled model output). DO NOT
@@ -279,12 +298,12 @@ export async function applyOne(emailId) {
   // a toast and leave the suggestion visible so something else can resolve
   // it (model retry, manual triage, code fix).
   if (diff.unmapped) {
-    await store.appendDiag({ kind: "apply_one.unmapped_action", emailId, action: sugg.action });
+    await store.appendDiag({ kind: "apply_one.unmapped_action", emailId, action: actionToApply });
     const result = {
       ok: false,
-      error: { kind: "unmapped-action", message: `Unknown action: ${sugg.action}` },
+      error: { kind: "unmapped-action", message: `Unknown action: ${actionToApply}` },
     };
-    await emitApplyOneFailure(emailId, sugg.action, result);
+    await emitApplyOneFailure(emailId, actionToApply, result);
     return result;
   }
 
@@ -293,7 +312,7 @@ export async function applyOne(emailId) {
   if (diff.noop) {
     await store.deleteSuggestion(emailId);
     await store.appendDiag({ kind: "apply_one.done", emailId, ok: true, noop: true });
-    return { ok: true, applied: sugg.action, noop: true };
+    return { ok: true, applied: actionToApply, noop: true };
   }
 
   let token;
@@ -301,15 +320,15 @@ export async function applyOne(emailId) {
     token = await getToken({ interactive: true });
   } catch (err) {
     const result = { ok: false, error: { kind: err.kind || "auth", message: err.message } };
-    await emitApplyOneFailure(emailId, sugg.action, result);
+    await emitApplyOneFailure(emailId, actionToApply, result);
     return result;
   }
 
   // Lazy-create the Follow-up label if this is our first Move action.
-  if (sugg.action === "Move: Follow-up" && diff.needsFollowUpLabel) {
+  if (actionToApply === "Move: Follow-up" && diff.needsFollowUpLabel) {
     try {
       const labelId = await ensureFollowUpLabel(token);
-      diff = actionToLabelDiff(sugg.action, { followUpLabelId: labelId });
+      diff = actionToLabelDiff(actionToApply, { followUpLabelId: labelId });
     } catch (err) {
       await store.putApplyError(emailId, `Could not create Follow-up label: ${err.message}`);
       const result = { ok: false, error: { kind: "gmail", message: err.message } };
@@ -324,7 +343,7 @@ export async function applyOne(emailId) {
   if (diff.needsStarLabel) {
     try {
       const labelId = await ensureStarLabel(token, diff.needsStarLabel);
-      diff = actionToLabelDiff(sugg.action, {
+      diff = actionToLabelDiff(actionToApply, {
         starLabelIds: { ...starLabelIdsCache, [diff.needsStarLabel]: labelId },
         followUpLabelId: undefined,
       });
@@ -344,7 +363,7 @@ export async function applyOne(emailId) {
     await store.clearApplyError(emailId);
     await removeFromInbox(emailId);
     await store.appendDiag({ kind: "apply_one.done", emailId, ok: true });
-    return { ok: true, applied: sugg.action };
+    return { ok: true, applied: actionToApply };
   } catch (err) {
     await store.putApplyError(emailId, err.message);
     const result = { ok: false, error: { kind: err.kind || "gmail", message: err.message } };
