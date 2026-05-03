@@ -22,6 +22,9 @@ export const KEYS = Object.freeze({
 
   DIAG_LOG:          "diagLog",           // local: redacted ring buffer of diagnostic events
   DISAGREEMENTS:    "disagreements",     // local: capped buffer of {emailId, predictedAction, chosenAction, from, subject, snippet, ts}
+
+  IMPROVING:        "improving",         // session: { improving: bool, ts }
+  IMPROVE_ERROR:    "improveError",      // session: { kind, message, hint? }
 });
 
 // Cap on the number of diagnostic events kept in chrome.storage.local.
@@ -214,4 +217,27 @@ export function clearDisagreements() {
   return withDisagreementsLock(async () => {
     await set("local", KEYS.DISAGREEMENTS, []);
   });
+}
+
+// ------------------------ Improve session state ------------------------
+
+export async function getImproving() {
+  const v = await get("session", KEYS.IMPROVING, null);
+  return Boolean(v?.improving);
+}
+
+export async function setImproving(improving) {
+  await set("session", KEYS.IMPROVING, { improving: Boolean(improving), ts: Date.now() });
+}
+
+export async function getImproveError() {
+  return (await get("session", KEYS.IMPROVE_ERROR, null)) || null;
+}
+
+export async function putImproveError(kind, message, hint) {
+  await set("session", KEYS.IMPROVE_ERROR, { kind, message, ...(hint ? { hint } : {}) });
+}
+
+export async function clearImproveError() {
+  await deleteKeys("session", [KEYS.IMPROVE_ERROR]);
 }

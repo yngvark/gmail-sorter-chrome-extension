@@ -58,3 +58,26 @@ describe("disagreement storage helpers", () => {
     assert.equal(list.length, 10);
   });
 });
+
+describe("improve session helpers", () => {
+  beforeEach(async () => { installChromeShim(); await freshImport(); });
+  afterEach(() => uninstallChromeShim());
+
+  test("setImproving / getImproving roundtrip", async () => {
+    assert.equal(await store.getImproving(), false);
+    await store.setImproving(true);
+    assert.equal(await store.getImproving(), true);
+    await store.setImproving(false);
+    assert.equal(await store.getImproving(), false);
+  });
+
+  test("putImproveError + clearImproveError + getImproveError", async () => {
+    assert.equal(await store.getImproveError(), null);
+    await store.putImproveError("parse", "model returned junk", "retry");
+    assert.deepEqual(await store.getImproveError(), {
+      kind: "parse", message: "model returned junk", hint: "retry",
+    });
+    await store.clearImproveError();
+    assert.equal(await store.getImproveError(), null);
+  });
+});
