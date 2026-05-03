@@ -56,3 +56,55 @@ describe("buildMetaPrompt", () => {
     assert.doesNotMatch(out, /\{DISAGREEMENTS_BLOCK\}/);
   });
 });
+
+import { parseImproveResponse } from "../background/improve.js";
+
+describe("parseImproveResponse", () => {
+  test("happy path: { rules: '...' } with action mention → ok", () => {
+    const r = parseImproveResponse({ rules: "Newsletters → Archive" });
+    assert.equal(r.ok, true);
+    assert.equal(r.rules, "Newsletters → Archive");
+  });
+
+  test("string input is JSON-parsed", () => {
+    const r = parseImproveResponse('{"rules":"Newsletters → Archive"}');
+    assert.equal(r.ok, true);
+  });
+
+  test("unparseable string → ok:false kind:'parse'", () => {
+    const r = parseImproveResponse("not json");
+    assert.equal(r.ok, false);
+    assert.equal(r.error.kind, "parse");
+  });
+
+  test("missing rules field → ok:false kind:'empty'", () => {
+    const r = parseImproveResponse({ foo: "bar" });
+    assert.equal(r.ok, false);
+    assert.equal(r.error.kind, "empty");
+  });
+
+  test("empty rules → ok:false kind:'empty'", () => {
+    const r = parseImproveResponse({ rules: "   " });
+    assert.equal(r.ok, false);
+    assert.equal(r.error.kind, "empty");
+  });
+
+  test("rules with no action name → ok:false kind:'no-action'", () => {
+    const r = parseImproveResponse({ rules: "Just be helpful." });
+    assert.equal(r.ok, false);
+    assert.equal(r.error.kind, "no-action");
+  });
+
+  test("rules over 4000 chars → ok:false kind:'too-long'", () => {
+    const huge = "Archive\n".repeat(1000); // mentions Archive but length > 4000
+    const r = parseImproveResponse({ rules: huge });
+    assert.equal(r.ok, false);
+    assert.equal(r.error.kind, "too-long");
+  });
+
+  test("rules trimmed to non-empty string in success path", () => {
+    const r = parseImproveResponse({ rules: "  Archive newsletters  " });
+    assert.equal(r.ok, true);
+    assert.equal(r.rules, "Archive newsletters");
+  });
+});

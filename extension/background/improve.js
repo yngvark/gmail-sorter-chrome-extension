@@ -21,3 +21,35 @@ export function buildMetaPrompt({ rules, disagreements }) {
     .replace("{CURRENT_RULES}",      rules || "")
     .replace("{DISAGREEMENTS_BLOCK}", block);
 }
+
+// ------------------------ Response validator ------------------------
+
+const MAX_RULES_CHARS = 4000;
+
+export function parseImproveResponse(raw) {
+  let obj = raw;
+  if (typeof raw === "string") {
+    try { obj = JSON.parse(raw); }
+    catch { return { ok: false, error: { kind: "parse", message: "Model returned non-JSON" } }; }
+  }
+  if (!obj || typeof obj !== "object") {
+    return { ok: false, error: { kind: "parse", message: "Model returned non-object" } };
+  }
+  const rules = typeof obj.rules === "string" ? obj.rules.trim() : "";
+  if (!rules) {
+    return { ok: false, error: { kind: "empty", message: "Model returned empty rules" } };
+  }
+  if (rules.length > MAX_RULES_CHARS) {
+    return {
+      ok: false,
+      error: { kind: "too-long", message: `Rules exceed ${MAX_RULES_CHARS} chars` },
+    };
+  }
+  if (!ACTIONS.some((a) => rules.includes(a))) {
+    return {
+      ok: false,
+      error: { kind: "no-action", message: "Rules don't reference any action name" },
+    };
+  }
+  return { ok: true, rules };
+}
