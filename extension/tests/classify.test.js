@@ -8,6 +8,7 @@ import {
   classifyEmail,
 } from "../background/classify.js";
 import { ACTIONS, DEFAULT_RULES, DEFAULT_SETTINGS, SAFE_FALLBACK_ACTION } from "../lib/schema.js";
+import { MAX_DISAGREEMENTS, META_PROMPT } from "../lib/schema.js";
 
 // ------------------------ buildMessages ------------------------
 
@@ -185,6 +186,26 @@ describe("ACTIONS taxonomy", () => {
     assert.match(DEFAULT_RULES, /→ Star: Red\./);   // arrow + variant + period — distinct from 'Star: Red bang'
     assert.match(DEFAULT_RULES, /Star: Red bang/);
     assert.doesNotMatch(DEFAULT_RULES, /→ Star\./, "plain 'Star.' rule should be gone");
+  });
+});
+
+// ------------------------ disagreement and meta-prompt constants ------------------------
+
+describe("disagreement and meta-prompt constants", () => {
+  test("MAX_DISAGREEMENTS is a positive integer ≤ 100", () => {
+    assert.equal(typeof MAX_DISAGREEMENTS, "number");
+    assert.ok(MAX_DISAGREEMENTS > 0 && MAX_DISAGREEMENTS <= 100);
+  });
+
+  test("META_PROMPT contains all three substitution placeholders", () => {
+    assert.match(META_PROMPT, /\{ACTION_LIST\}/);
+    assert.match(META_PROMPT, /\{CURRENT_RULES\}/);
+    assert.match(META_PROMPT, /\{DISAGREEMENTS_BLOCK\}/);
+  });
+
+  test("META_PROMPT instructs the model to output JSON with a 'rules' field", () => {
+    assert.match(META_PROMPT, /JSON/);
+    assert.match(META_PROMPT, /"rules"/);
   });
 });
 

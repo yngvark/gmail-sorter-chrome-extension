@@ -35,3 +35,38 @@ export const DEFAULT_SETTINGS = Object.freeze({
 // Returned when the model's answer is unparseable. Safe fallback: don't
 // mutate the user's mailbox.
 export const SAFE_FALLBACK_ACTION = "Leave alone";
+
+// Cap on captured disagreements. Bounds the meta-prompt payload so it
+// doesn't exceed the model's context window. When full, oldest is dropped.
+export const MAX_DISAGREEMENTS = 50;
+
+// The meta-prompt template used by improve.js. Three placeholders are
+// substituted at render time: {ACTION_LIST}, {CURRENT_RULES},
+// {DISAGREEMENTS_BLOCK}. Kept verbatim in code so the user can see the
+// instruction the LLM receives — the side panel renders it read-only.
+export const META_PROMPT = `You are tuning an email-classification ruleset.
+
+The classifier picks one of these actions for each email:
+{ACTION_LIST}
+
+Current rules (free text the classifier reads to decide):
+---
+{CURRENT_RULES}
+---
+
+The user reviewed the classifier's predictions and disagreed with these:
+{DISAGREEMENTS_BLOCK}
+
+Each disagreement shows: From / Subject / Snippet, the action the classifier
+chose, and the action the user actually wanted.
+
+Rewrite the rules so that the classifier would have picked the user's chosen
+action for each disagreement, while preserving the spirit of the existing
+rules for cases not in the list.
+
+Constraints:
+- Use only the action names listed above. Do NOT invent new actions.
+- Keep the rules concise — short bullet points or one-line statements.
+- Do not include preamble, explanation, or commentary. Output only the new rules text.
+
+Respond with JSON: {"rules": "<the new rules text>"}.`;
