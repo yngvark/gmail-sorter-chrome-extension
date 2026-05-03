@@ -10,6 +10,9 @@ import { chat, OllamaError } from "./ollama.js";
 
 // ------------------------ Prompt ------------------------
 
+// The system message produced here is mirrored by sidepanel.js::buildSystemMessage
+// for the read-only "Sent to the model" preview. If the prompt format changes
+// (action list shape, rules section, JSON contract), update both.
 export function buildMessages({ rules, email }) {
   const actionList = ACTIONS.map((a) => `  - ${a}`).join("\n");
   const system = `You classify emails. Choose exactly one action from this list for each email:
