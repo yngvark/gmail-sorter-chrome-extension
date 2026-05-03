@@ -6,6 +6,7 @@ import * as gmail from "./gmail.js";
 import { getToken } from "./auth.js";
 import * as store from "./storage.js";
 import { classifyEmail, actionToLabelDiff } from "./classify.js";
+import { improveRules } from "./improve.js";
 
 // ------------------------ Concurrency helper ------------------------
 
@@ -451,3 +452,50 @@ export async function applyAll() {
 }
 
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
+// ------------------------ improvePrompt ------------------------
+
+let improveInFlight = false;
+
+export async function improvePrompt() {
+  if (improveInFlight) {
+    return { ok: false, error: { kind: "busy", message: "Improve already running" } };
+  }
+  improveInFlight = true;
+
+  try {
+    // Refuse while a classify run is in flight; the IMPROVING flag and the
+    // classifyProgress flag are independent, so we check both.
+    const progress = await store.get("session", store.KEYS.CLASSIFY_PROGRESS, null);
+    if (progress?.classifying) {
+      return { ok: false, error: { kind: "busy", message: "Classify is running" } };
+    }
+
+    await store.setImproving(true);
+    await store.clearImproveError();
+
+    const settings = await store.getSettings();
+    const disagreements = await store.getDisagreements();
+    const rules = settings.rules;
+
+    const r = await improveRules({ settings, rules, disagreements });
+
+    if (!r.ok) {
+      await store.putImproveError(r.error.kind, r.error.message, r.error.hint);
+      return r;
+    }
+
+    await store.setSettings({ rules: r.rules });
+    await store.clearDisagreements();
+    await store.clearImproveError();
+
+    // Re-classify with the new rules. classifyInbox already manages its own
+    // progress/state and is idempotent against double-invocation.
+    await classifyInbox();
+
+    return { ok: true };
+  } finally {
+    await store.setImproving(false);
+    improveInFlight = false;
+  }
+}
