@@ -4,7 +4,7 @@
 //   session → classify/apply progress (cleared when browser closes)
 //   sync    → user settings (synced across devices)
 
-import { DEFAULT_SETTINGS } from "../lib/schema.js";
+import { DEFAULT_SETTINGS, MAX_DISAGREEMENTS } from "../lib/schema.js";
 
 export const KEYS = Object.freeze({
   INBOX:        "inboxEmails",       // { [id]: { id, from, subject, snippet, labelIds } }
@@ -21,6 +21,7 @@ export const KEYS = Object.freeze({
   STAR_LABEL_IDS:    "starLabelIdsV2",      // sync: { yellow?, red?, redBang? } cached label ids
 
   DIAG_LOG:          "diagLog",           // local: redacted ring buffer of diagnostic events
+  DISAGREEMENTS:    "disagreements",     // local: capped buffer of {emailId, predictedAction, chosenAction, from, subject, snippet, ts}
 });
 
 // Cap on the number of diagnostic events kept in chrome.storage.local.
@@ -179,4 +180,38 @@ export async function getDiag() {
 
 export async function clearDiag() {
   await set("local", KEYS.DIAG_LOG, []);
+}
+
+// ------------------------ Disagreement buffer ------------------------
+//
+// Append-only list capped at MAX_DISAGREEMENTS. Cleared on successful
+// improve. Serialise reads + writes so concurrent appends from rapid
+// clicks don't lose entries — same pattern as withSuggestionsLock.
+
+let disagreementsLock = Promise.resolve();
+function withDisagreementsLock(fn) {
+  const next = disagreementsLock.then(fn, fn);
+  disagreementsLock = next.catch(() => {});
+  return next;
+}
+
+export async function getDisagreements() {
+  return (await get("local", KEYS.DISAGREEMENTS, [])) || [];
+}
+
+export function appendDisagreement(record) {
+  return withDisagreementsLock(async () => {
+    const list = await getDisagreements();
+    list.push(record);
+    const trimmed = list.length > MAX_DISAGREEMENTS
+      ? list.slice(list.length - MAX_DISAGREEMENTS)
+      : list;
+    await set("local", KEYS.DISAGREEMENTS, trimmed);
+  });
+}
+
+export function clearDisagreements() {
+  return withDisagreementsLock(async () => {
+    await set("local", KEYS.DISAGREEMENTS, []);
+  });
 }
