@@ -57,6 +57,46 @@
           Your inbox is empty. Press <em>Fetch inbox</em> above to pull new mail.
         </p>
       </section>
+
+      <section class="mapping" id="mapping-section" aria-label="Mapping prompt">
+        <header class="mapping__head">
+          <h2 class="mapping__title">Mapping prompt</h2>
+        </header>
+
+        <div class="mapping__group">
+          <div class="mapping__label">Sent to the model</div>
+          <pre class="mapping__readonly" id="mapping-system"></pre>
+        </div>
+
+        <div class="mapping__group">
+          <div class="mapping__label">Rules (improvable)</div>
+          <textarea class="mapping__textarea" id="mapping-rules" rows="8"></textarea>
+          <div class="mapping__row">
+            <button class="pill-btn" type="button" id="mapping-save-btn">Save rules</button>
+            <span class="mapping__status" id="mapping-save-status"></span>
+          </div>
+        </div>
+
+        <details class="mapping__group" id="mapping-disagreements">
+          <summary class="mapping__summary">
+            Disagreements pending: <span id="mapping-dis-count">0</span>
+          </summary>
+          <ul class="mapping__list" id="mapping-dis-list"></ul>
+        </details>
+
+        <div class="mapping__group">
+          <div class="mapping__label">Improvement prompt</div>
+          <pre class="mapping__readonly" id="mapping-meta"></pre>
+        </div>
+
+        <div class="mapping__group">
+          <button class="btn btn--primary" id="improve-btn" type="button" disabled
+                  title="Click an action that differs from the suggestion to record a disagreement first.">
+            <span class="btn__label">Improve mapping prompt</span>
+          </button>
+          <div class="mapping__error" id="mapping-error" hidden></div>
+        </div>
+      </section>
     </main>
 
     <footer class="footer">
