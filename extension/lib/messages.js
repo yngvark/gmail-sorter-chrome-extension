@@ -14,6 +14,8 @@ export const MSG = Object.freeze({
 
   GET_DIAG:        "GET_DIAG",         // returns the redacted diagnostics ring buffer
   CLEAR_DIAG:      "CLEAR_DIAG",       // empties the diagnostics ring buffer
+
+  IMPROVE_PROMPT:  "IMPROVE_PROMPT",   // run the rules-improvement LLM call
 });
 
 // Response envelope: { ok: true, data } | { ok: false, error: { kind, message, hint? } }

@@ -73,6 +73,10 @@ async function handle(msg) {
       await store.clearDiag();
       return reply({ cleared: true });
     }
+    case MSG.IMPROVE_PROMPT: {
+      const result = await pipeline.improvePrompt();
+      return result.ok ? reply(result) : replyError(result.error);
+    }
     default:
       return replyError({ kind: "unknown-message", message: `Unknown message type: ${msg?.type}` });
   }
