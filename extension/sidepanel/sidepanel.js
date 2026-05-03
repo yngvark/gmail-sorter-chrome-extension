@@ -590,6 +590,42 @@ document.addEventListener("click", (e) => {
 els.fetchBtn.addEventListener("click", handleFetchClick);
 els.classifyBtn.addEventListener("click", handleClassifyClick);
 els.applyAllBtn.addEventListener("click", applyAll);
+
+els.mappingRules.addEventListener("input", () => {
+  state.rulesEditDirty = els.mappingRules.value !== (state.settings?.rules || "");
+});
+
+els.mappingSaveBtn.addEventListener("click", async () => {
+  const next = els.mappingRules.value.trim();
+  if (!next) return;
+  if (isExtension) {
+    const cur = await chrome.storage.sync.get(KEYS.SETTINGS);
+    const merged = { ...DEFAULT_SETTINGS, ...(cur[KEYS.SETTINGS] || {}), rules: next };
+    await chrome.storage.sync.set({ [KEYS.SETTINGS]: merged });
+  } else {
+    state.settings = { ...state.settings, rules: next };
+  }
+  state.rulesEditDirty = false;
+  els.mappingSaveStatus.textContent = "Saved.";
+  setTimeout(() => { els.mappingSaveStatus.textContent = ""; }, 1500);
+  render();
+});
+
+els.improveBtn.addEventListener("click", async () => {
+  if (!isExtension) return;
+  state.improving = true; render();
+  try {
+    const res = await chrome.runtime.sendMessage({ type: MSG.IMPROVE_PROMPT });
+    if (!res?.ok) {
+      state.improveError = res?.error || { kind: "unknown", message: "Improve failed" };
+    }
+  } catch (err) {
+    state.improveError = { kind: "unknown", message: err.message || String(err) };
+  } finally {
+    state.improving = false;
+    render();
+  }
+});
 els.optionsLink.addEventListener("click", (e) => {
   e.preventDefault();
   if (globalThis.chrome?.runtime?.openOptionsPage) chrome.runtime.openOptionsPage();
@@ -638,10 +674,10 @@ els.devClassifyBtn.addEventListener("click", () =>
 async function hydrateFromStorage() {
   if (!isExtension) return;
   const local = await chrome.storage.local.get([
-    KEYS.INBOX, KEYS.SUGGESTIONS, KEYS.HAS_CLASSIFIED, KEYS.APPLY_ERRORS,
+    KEYS.INBOX, KEYS.SUGGESTIONS, KEYS.HAS_CLASSIFIED, KEYS.APPLY_ERRORS, KEYS.DISAGREEMENTS,
   ]);
   const session = await chrome.storage.session.get([
-    KEYS.CLASSIFY_PROGRESS, KEYS.APPLY_PROGRESS, KEYS.ERROR,
+    KEYS.CLASSIFY_PROGRESS, KEYS.APPLY_PROGRESS, KEYS.ERROR, KEYS.IMPROVING, KEYS.IMPROVE_ERROR,
   ]);
   const sync = await chrome.storage.sync.get([KEYS.SETTINGS]);
 
@@ -659,6 +695,9 @@ async function hydrateFromStorage() {
   }
   state.hasClassified = Boolean(local[KEYS.HAS_CLASSIFIED]);
   state.applyErrors = local[KEYS.APPLY_ERRORS] || {};
+  state.disagreements = local[KEYS.DISAGREEMENTS] || [];
+  state.improving = Boolean(session[KEYS.IMPROVING]?.improving);
+  state.improveError = session[KEYS.IMPROVE_ERROR] || null;
 
   const cp = session[KEYS.CLASSIFY_PROGRESS];
   if (cp) {
@@ -686,6 +725,10 @@ function subscribeToStorage() {
       if (KEYS.SUGGESTIONS in changes)    { state.suggestions = changes[KEYS.SUGGESTIONS].newValue || {}; dirty = true; }
       if (KEYS.HAS_CLASSIFIED in changes) { state.hasClassified = Boolean(changes[KEYS.HAS_CLASSIFIED].newValue); dirty = true; }
       if (KEYS.APPLY_ERRORS in changes)   { state.applyErrors = changes[KEYS.APPLY_ERRORS].newValue || {}; dirty = true; }
+      if (KEYS.DISAGREEMENTS in changes) {
+        state.disagreements = changes[KEYS.DISAGREEMENTS].newValue || [];
+        dirty = true;
+      }
     } else if (area === "session") {
       if (KEYS.CLASSIFY_PROGRESS in changes) {
         const cp = changes[KEYS.CLASSIFY_PROGRESS].newValue || {};
@@ -703,6 +746,14 @@ function subscribeToStorage() {
       }
       if (KEYS.ERROR in changes) {
         state.lastError = changes[KEYS.ERROR].newValue || null;
+        dirty = true;
+      }
+      if (KEYS.IMPROVING in changes) {
+        state.improving = Boolean(changes[KEYS.IMPROVING].newValue?.improving);
+        dirty = true;
+      }
+      if (KEYS.IMPROVE_ERROR in changes) {
+        state.improveError = changes[KEYS.IMPROVE_ERROR].newValue || null;
         dirty = true;
       }
     } else if (area === "sync") {
