@@ -53,3 +53,26 @@ export function parseImproveResponse(raw) {
   }
   return { ok: true, rules };
 }
+
+// ------------------------ End-to-end Improve call ------------------------
+
+export async function improveRules({ settings, rules, disagreements }) {
+  const prompt = buildMetaPrompt({ rules, disagreements });
+  try {
+    const { json, raw } = await chat({
+      baseUrl: settings.ollamaBaseUrl,
+      model:   settings.ollamaModel,
+      numCtx:  settings.numCtx,
+      messages: [
+        { role: "system", content: "You rewrite email-classification rules. Output strict JSON only." },
+        { role: "user",   content: prompt },
+      ],
+    });
+    return parseImproveResponse(json ?? raw);
+  } catch (err) {
+    if (err instanceof OllamaError) {
+      return { ok: false, error: { kind: err.kind, message: err.message, hint: err.hint } };
+    }
+    return { ok: false, error: { kind: "unknown", message: String(err?.message || err) } };
+  }
+}

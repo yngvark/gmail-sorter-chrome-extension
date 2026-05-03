@@ -1,4 +1,4 @@
-import { test, describe } from "node:test";
+import { test, describe, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { buildMetaPrompt } from "../background/improve.js";
 import { ACTIONS } from "../lib/schema.js";
@@ -106,5 +106,55 @@ describe("parseImproveResponse", () => {
     const r = parseImproveResponse({ rules: "  Archive newsletters  " });
     assert.equal(r.ok, true);
     assert.equal(r.rules, "Archive newsletters");
+  });
+});
+
+import { improveRules } from "../background/improve.js";
+import { DEFAULT_SETTINGS } from "../lib/schema.js";
+
+describe("improveRules", () => {
+  let origFetch;
+  beforeEach(() => { origFetch = globalThis.fetch; });
+  afterEach(() => { globalThis.fetch = origFetch; });
+
+  function mockOllamaReturning(content) {
+    globalThis.fetch = async () => new Response(
+      JSON.stringify({ message: { content } }),
+      { status: 200 },
+    );
+  }
+
+  test("happy path returns ok with new rules", async () => {
+    mockOllamaReturning(JSON.stringify({
+      rules: "Newsletters → Archive\nPersonal mail → Star: Yellow",
+    }));
+    const r = await improveRules({
+      settings: DEFAULT_SETTINGS,
+      rules: "Old rules",
+      disagreements: [{
+        emailId: "m1", predictedAction: "Archive", chosenAction: "Star: Yellow",
+        from: "Mom", subject: "Hi", snippet: "x", ts: 1,
+      }],
+    });
+    assert.equal(r.ok, true);
+    assert.match(r.rules, /Newsletters/);
+  });
+
+  test("CORS surfaces as error.kind 'cors'", async () => {
+    globalThis.fetch = async () => { throw new TypeError("Failed to fetch"); };
+    const r = await improveRules({
+      settings: DEFAULT_SETTINGS, rules: "x", disagreements: [],
+    });
+    assert.equal(r.ok, false);
+    assert.equal(r.error.kind, "cors");
+  });
+
+  test("validation failure (no-action) propagates", async () => {
+    mockOllamaReturning(JSON.stringify({ rules: "be helpful" }));
+    const r = await improveRules({
+      settings: DEFAULT_SETTINGS, rules: "x", disagreements: [],
+    });
+    assert.equal(r.ok, false);
+    assert.equal(r.error.kind, "no-action");
   });
 });
