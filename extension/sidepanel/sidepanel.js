@@ -317,13 +317,13 @@ function fadeOutThen(el, cb) {
   setTimeout(cb, FADE_DURATION_MS);
 }
 
-async function applyOne(emailId) {
+async function applyOne(emailId, chosenAction) {
   const row = els.emailList.querySelector(`[data-email-id="${emailId}"]`);
   if (row) row.classList.add("leaving");
 
   if (isExtension) {
     try {
-      const res = await chrome.runtime.sendMessage({ type: MSG.APPLY_ONE, emailId });
+      const res = await chrome.runtime.sendMessage({ type: MSG.APPLY_ONE, emailId, chosenAction });
       if (!res?.ok) {
         if (row) row.classList.remove("leaving");
         console.error("apply failed", res);

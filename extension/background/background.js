@@ -58,7 +58,7 @@ async function handle(msg) {
       return reply(result);
     }
     case MSG.APPLY_ONE: {
-      const result = await pipeline.applyOne(msg.emailId);
+      const result = await pipeline.applyOne(msg.emailId, msg.chosenAction);
       return result.ok ? reply(result) : replyError(result.error);
     }
     case MSG.APPLY_ALL: {
