@@ -414,10 +414,15 @@ async function applyOne(emailId, chosenAction) {
           state.applyErrors[emailId] = { message };
           renderToasts();
         }
+      } else if (res.noop && row) {
+        // Noop apply (e.g. "Leave alone"): pipeline cleared the suggestion but
+        // the inbox row is intentionally untouched. Drop the fade so the row
+        // stays visible without the half-faded look.
+        row.classList.remove("leaving");
       }
-      // On success, storage.onChanged drops both the suggestion and the inbox
-      // row; renderEmails' diff keeps the row fading then removes it when the
-      // fade completes.
+      // On a non-noop success, storage.onChanged drops both the suggestion
+      // and the inbox row; renderEmails' diff keeps the row fading then
+      // removes it when the fade completes.
     } catch (err) {
       if (row) row.classList.remove("leaving");
       console.error(err);

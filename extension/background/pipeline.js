@@ -149,14 +149,16 @@ export async function classifyInbox() {
         return;
       }
 
-      if (result.action !== "Leave alone") {
-        await store.putSuggestion({
-          emailId: email.id,
-          from: email.from,
-          subject: email.subject,
-          action: result.action,
-        });
-      }
+      // Store every prediction, including "Leave alone". Skipping it here used
+      // to leave the row with no highlighted button in the seven-button UI;
+      // the user couldn't see the model's "do nothing" verdict. applyOne's
+      // noop path clears it without a Gmail call when Apply All runs.
+      await store.putSuggestion({
+        emailId: email.id,
+        from: email.from,
+        subject: email.subject,
+        action: result.action,
+      });
 
       done++;
       await store.setClassifyProgress({ classifying: true, progress: done, total: todo.length });
@@ -251,28 +253,40 @@ export async function ensureStarLabel(token, variant) {
 export async function applyOne(emailId, chosenAction) {
   const suggestions = await store.getSuggestions();
   const sugg = suggestions[emailId];
-  if (!sugg) {
+
+  // The seven-button row lets the user act on any inbox row, including emails
+  // with no stored suggestion (never classified, or classifier disagreed and
+  // the row reloaded mid-flight). When no `chosenAction` is provided either,
+  // the only callers are the legacy single-pill path and Apply All — both of
+  // which require a suggestion to know what to apply.
+  if (!sugg && !chosenAction) {
     const result = { ok: false, error: { kind: "missing", message: "suggestion not found" } };
     await emitApplyOneFailure(emailId, undefined, result);
     return result;
   }
 
-  // Disagreement capture: when the user picks an action different from the
-  // model's suggestion, record the pair so improvePrompt can learn from it.
-  // Apply the user's chosen action, not the predicted one.
-  let actionToApply = sugg.action;
-  if (chosenAction && chosenAction !== sugg.action) {
-    const inbox = await store.getInbox();
-    const row = inbox[emailId] || {};
-    await store.appendDisagreement({
-      emailId,
-      predictedAction: sugg.action,
-      chosenAction,
-      from:    row.from    || sugg.from    || "",
-      subject: row.subject || sugg.subject || "",
-      snippet: (row.snippet || "").slice(0, 200),
-      ts: Date.now(),
-    });
+  let actionToApply;
+  if (sugg) {
+    actionToApply = sugg.action;
+    // Disagreement capture: when the user picks an action different from the
+    // model's suggestion, record the pair so improvePrompt can learn from it.
+    if (chosenAction && chosenAction !== sugg.action) {
+      const inbox = await store.getInbox();
+      const row = inbox[emailId] || {};
+      await store.appendDisagreement({
+        emailId,
+        predictedAction: sugg.action,
+        chosenAction,
+        from:    row.from    || sugg.from    || "",
+        subject: row.subject || sugg.subject || "",
+        snippet: (row.snippet || "").slice(0, 200),
+        ts: Date.now(),
+      });
+      actionToApply = chosenAction;
+    }
+  } else {
+    // No stored suggestion → no prediction to disagree with. Just apply the
+    // user's pick directly.
     actionToApply = chosenAction;
   }
 

@@ -77,8 +77,18 @@ describe("pipeline.applyOne disagreement capture", () => {
     assert.equal(list[0].snippet.length, 200);
   });
 
-  test("missing suggestion still returns missing error (no disagreement attempted)", async () => {
+  test("missing suggestion + chosenAction → applies the chosen action, no disagreement", async () => {
+    // No prediction to disagree with, so disagreement buffer stays empty.
+    // Action still applies (dry-run path; Gmail not hit).
+    shim.storage.local.set("inboxEmails", { ghost: { id: "ghost", from: "x", subject: "y" } });
     const r = await pipeline.applyOne("ghost", "Archive");
+    assert.equal(r.ok, true);
+    assert.equal(r.applied, "Archive");
+    assert.deepEqual(await store.getDisagreements(), []);
+  });
+
+  test("missing suggestion + no chosenAction → missing error (Apply All / legacy)", async () => {
+    const r = await pipeline.applyOne("ghost");
     assert.equal(r.ok, false);
     assert.equal(r.error.kind, "missing");
     assert.deepEqual(await store.getDisagreements(), []);

@@ -200,10 +200,29 @@ describe("pipeline.applyOne", () => {
     assert.ok((await store.getSuggestions()).m1);
   });
 
-  test("missing suggestion returns typed error", async () => {
+  test("missing suggestion + no chosenAction returns typed error", async () => {
+    // The legacy single-pill / Apply All path: no chosenAction means we have
+    // no idea what to apply. Caller must surface the missing error.
     const r = await pipeline.applyOne("ghost");
     assert.equal(r.ok, false);
     assert.equal(r.error.kind, "missing");
+  });
+
+  test("missing suggestion + chosenAction applies the action (seven-button click on unclassified row)", async () => {
+    // No suggestion in storage, but the user clicked "Archive" on the row.
+    // Backend should honor it: hit Gmail, clear inbox, no disagreement.
+    shim.storage.local.set("inboxEmails", { m1: { id: "m1", from: "a", subject: "b" } });
+    const r = await pipeline.applyOne("m1", "Archive");
+    assert.equal(r.ok, true);
+    assert.equal(r.applied, "Archive");
+    assert.equal(fetchCalls.length, 1);
+    assert.match(fetchCalls[0].url, /messages\/m1\/modify$/);
+    assert.deepEqual(JSON.parse(fetchCalls[0].opts.body), {
+      addLabelIds: [],
+      removeLabelIds: ["INBOX"],
+    });
+    assert.deepEqual(await store.getInbox(), {});
+    assert.deepEqual(await store.getDisagreements(), []);
   });
 
   // ------------------ Action-string hardening (issue #1) ------------------

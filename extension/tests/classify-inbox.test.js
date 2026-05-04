@@ -149,7 +149,7 @@ describe("pipeline.classifyInbox", () => {
     assert.equal(shim.storage.local.get("hasClassified"), true);
   });
 
-  test("Leave alone does not create a suggestion", async () => {
+  test("Leave alone is stored as a suggestion (visible prediction)", async () => {
     const rows = [
       { id: "m1", from: "Calendar", subject: "Reminder", body: "x" },
     ];
@@ -162,7 +162,7 @@ describe("pipeline.classifyInbox", () => {
 
     await pipeline.classifyInbox();
     const suggestions = await store.getSuggestions();
-    assert.deepEqual(suggestions, {});
+    assert.equal(suggestions.m1?.action, "Leave alone");
   });
 
   test("CORS error aborts the run and writes session.lastError", async () => {
