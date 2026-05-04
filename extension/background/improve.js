@@ -68,7 +68,13 @@ export async function improveRules({ settings, rules, disagreements }) {
         { role: "user",   content: prompt },
       ],
     });
-    return parseImproveResponse(json ?? raw);
+    const result = parseImproveResponse(json ?? raw);
+    if (!result.ok) {
+      console.warn("[gmail-sorter] improve: parse failed —", result.error.kind, "raw response:", raw);
+      const snippet = String(raw || "").trim().replace(/\s+/g, " ").slice(0, 200);
+      if (snippet) result.error.hint = `Model said: ${snippet}`;
+    }
+    return result;
   } catch (err) {
     if (err instanceof OllamaError) {
       return { ok: false, error: { kind: err.kind, message: err.message, hint: err.hint } };

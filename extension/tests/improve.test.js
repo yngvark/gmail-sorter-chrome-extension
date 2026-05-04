@@ -157,4 +157,16 @@ describe("improveRules", () => {
     assert.equal(r.ok, false);
     assert.equal(r.error.kind, "no-action");
   });
+
+  test("parse-failure paths attach raw model output as a hint", async () => {
+    // Model returned valid JSON but with the wrong shape (no `rules` field).
+    mockOllamaReturning(JSON.stringify({ output: "Newsletters → Archive" }));
+    const r = await improveRules({
+      settings: DEFAULT_SETTINGS, rules: "x", disagreements: [],
+    });
+    assert.equal(r.ok, false);
+    assert.equal(r.error.kind, "empty");
+    assert.match(r.error.hint, /Model said:/);
+    assert.match(r.error.hint, /Newsletters → Archive/);
+  });
 });
