@@ -465,14 +465,14 @@ body {
 
 .email-row {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  gap: 6px;
   padding: 11px 0 10px;
   border-bottom: 1px solid var(--rule-soft);
   transition: opacity var(--tx-med), transform var(--tx-med),
               max-height var(--tx-med), padding var(--tx-med),
               background var(--tx-fast);
-  max-height: 80px;
+  max-height: 220px;
   overflow: hidden;
   position: relative;
   /* Staggered entrance animation */
