@@ -8,7 +8,6 @@ export const ACTIONS = Object.freeze([
   "Star: Red bang",
   "Archive",
   "Mark read",
-  "Move: Follow-up",
   "Leave alone",
 ]);
 
@@ -18,7 +17,6 @@ Things I need to reply to or act on soon → Star: Red.
 Urgent — needs my attention today → Star: Red bang.
 Receipts, order confirmations, newsletters, promotional mail → Archive.
 Security alerts or notifications that don't need action → Mark read.
-Colleagues or teammates asking for something from me (a review, a reply, a meeting) → Move: Follow-up.
 Automated reminders about events that already exist in my calendar → Leave alone.
 When genuinely unsure → Leave alone.`;
 

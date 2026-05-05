@@ -17,7 +17,6 @@ export const KEYS = Object.freeze({
   ERROR:             "lastError",         // session: { kind, message, hint? } (CORS etc.)
 
   SETTINGS:          "settings",          // sync: see schema.js for shape
-  FOLLOWUP_LABEL_ID: "followUpLabelId",   // sync: cached custom-label id
   STAR_LABEL_IDS:    "starLabelIdsV2",      // sync: { yellow?, red?, redBang? } cached label ids
 
   DIAG_LOG:          "diagLog",           // local: redacted ring buffer of diagnostic events

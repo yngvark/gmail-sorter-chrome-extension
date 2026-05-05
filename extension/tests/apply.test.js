@@ -114,52 +114,14 @@ describe("pipeline.applyOne", () => {
     assert.deepEqual(cached, { yellow: "Label_77" });
   });
 
-  test("Move: Follow-up creates label on first use and caches id", async () => {
+  test("Move: Follow-up is now unmapped — no Gmail call, suggestion preserved (regression guard)", async () => {
     seedSuggestion(shim.storage, { emailId: "m1", from: "Alex", subject: "PR", action: "Move: Follow-up" });
-
-    // First fetch: listLabels (no Follow-up yet). Second: createLabel. Third: modify.
-    const seen = [];
-    globalThis.fetch = async (url, opts) => {
-      seen.push({ url, method: opts.method || "GET", body: opts.body });
-      if (url.endsWith("/labels") && (!opts.method || opts.method === "GET")) {
-        return new Response(JSON.stringify({ labels: [] }), { status: 200 });
-      }
-      if (url.endsWith("/labels") && opts.method === "POST") {
-        return new Response(JSON.stringify({ id: "Label_99", name: "Follow-up" }), { status: 200 });
-      }
-      return new Response("{}", { status: 200 });
-    };
-
     const r = await pipeline.applyOne("m1");
-    assert.equal(r.ok, true);
 
-    // labels GET, labels POST, modify POST
-    assert.equal(seen.length, 3);
-    assert.match(seen[0].url, /\/labels$/); assert.equal(seen[0].method, "GET");
-    assert.match(seen[1].url, /\/labels$/); assert.equal(seen[1].method, "POST");
-    assert.match(seen[2].url, /\/messages\/m1\/modify$/);
-    assert.deepEqual(JSON.parse(seen[2].body), {
-      addLabelIds: ["Label_99"],
-      removeLabelIds: ["INBOX"],
-    });
-
-    // Cached in sync storage
-    assert.equal(shim.storage.sync.get("followUpLabelId"), "Label_99");
-  });
-
-  test("Move: Follow-up reuses cached label id on subsequent calls", async () => {
-    shim.storage.sync.set("followUpLabelId", "Label_99");
-    seedSuggestion(shim.storage, { emailId: "m1", from: "x", subject: "y", action: "Move: Follow-up" });
-
-    const r = await pipeline.applyOne("m1");
-    assert.equal(r.ok, true);
-    // Only one call (modify) — no label list / create.
-    assert.equal(fetchCalls.length, 1);
-    assert.match(fetchCalls[0].url, /\/messages\/m1\/modify$/);
-    assert.deepEqual(JSON.parse(fetchCalls[0].opts.body), {
-      addLabelIds: ["Label_99"],
-      removeLabelIds: ["INBOX"],
-    });
+    assert.equal(r.ok, false);
+    assert.equal(r.error.kind, "unmapped-action");
+    assert.equal(fetchCalls.length, 0);
+    assert.ok((await store.getSuggestions()).m1, "suggestion must NOT be deleted on unmapped action");
   });
 
   test("Leave alone: clears suggestion locally, makes no Gmail call", async () => {

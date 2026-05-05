@@ -18,6 +18,5 @@ export const ACTION_ICONS = Object.freeze({
   "Star: Red bang": "‼️",
   "Archive":        "📥",
   "Mark read":      "✓",
-  "Move: Follow-up":"↪",
   "Leave alone":    "💤",
 });

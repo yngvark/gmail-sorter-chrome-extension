@@ -91,7 +91,7 @@ function starDiff(variant, starLabelIds = {}) {
   };
 }
 
-export function actionToLabelDiff(action, { followUpLabelId, starLabelIds } = {}) {
+export function actionToLabelDiff(action, { starLabelIds } = {}) {
   // Trim incoming action so trivial whitespace from the model (e.g. "Archive ")
   // doesn't fall through to the unmapped branch. We deliberately do NOT
   // lowercase: case mismatches indicate a real model bug and we want them
@@ -103,11 +103,6 @@ export function actionToLabelDiff(action, { followUpLabelId, starLabelIds } = {}
     case "Star: Red bang":   return starDiff("redBang", starLabelIds);
     case "Archive":          return { add: [],                    remove: ["INBOX"] };
     case "Mark read":        return { add: [],                    remove: ["UNREAD"] };
-    case "Move: Follow-up":  return {
-      add: followUpLabelId ? [followUpLabelId] : [],
-      remove: ["INBOX"],
-      needsFollowUpLabel: !followUpLabelId,
-    };
     case "Leave alone":      return { add: [], remove: [], noop: true };
     // Unmapped: distinguishable from "Leave alone" via `unmapped: true` so
     // pipeline.applyOne can refuse to silently delete the suggestion. The

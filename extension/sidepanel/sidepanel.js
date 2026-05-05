@@ -25,7 +25,7 @@ const PLACEHOLDER_INBOX = [
 ];
 
 const PLACEHOLDER_SUGGESTIONS = [
-  { emailId: "i1", from: "GitHub",   subject: "[repo] PR #42 opened", action: "Move: Follow-up" },
+  { emailId: "i1", from: "GitHub",   subject: "[repo] PR #42 opened", action: "Star: Red" },
   { emailId: "i2", from: "Substack", subject: "This week in AI",      action: "Archive" },
   { emailId: "i3", from: "Sam",      subject: "Coffee next week?",    action: "Star: Red" },
   { emailId: "i4", from: "Calendar", subject: "Reminder: 1:1",        action: "Mark read" },
@@ -493,7 +493,7 @@ async function applyAll() {
 function simulateClassify() {
   if (state.classifying) return;
   const demoPool = [
-    { emailId: "i1", from: "GitHub",    subject: "[repo] PR #42 opened", action: "Move: Follow-up" },
+    { emailId: "i1", from: "GitHub",    subject: "[repo] PR #42 opened", action: "Star: Red" },
     { emailId: "i2", from: "Substack",  subject: "This week in AI",      action: "Archive" },
     { emailId: "i3", from: "Sam",       subject: "Coffee next week?",    action: "Star: Red" },
     { emailId: "i4", from: "Calendar",  subject: "Reminder: 1:1",        action: "Mark read" },

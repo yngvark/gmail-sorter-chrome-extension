@@ -178,14 +178,13 @@ Reference: [Keep consistent extension ID](https://developer.chrome.com/docs/exte
    50 most recent), asks Ollama about each one, and streams suggestions
    into the panel.
 3. Click an action pill (**Star: Yellow**, **Star: Red**, **Star: Red
-   bang**, **Archive**, **Move: Follow-up**, **Mark read**) to apply
-   that action to that email.
+   bang**, **Archive**, **Mark read**) to apply that action to that email.
 4. Or click **Apply all** to apply every pending suggestion.
 
 Dry-run mode in the options page lets you audit the classifier without
 mutating Gmail.
 
-The first time you apply each star variant or a follow-up, the extension creates a small color-coded Gmail label (`Star/Yellow`, `Star/Red`, `Star/RedBang`, `Follow-up`) and reuses it on every subsequent apply. The forward slashes nest the three star labels under a `Star` parent in Gmail's label list.
+The first time you apply each star variant, the extension creates a small color-coded Gmail label (`Star/Yellow`, `Star/Red`, `Star/RedBang`) and reuses it on every subsequent apply. The forward slashes nest the three star labels under a `Star` parent in Gmail's label list.
 
 ## Architecture
 
@@ -197,9 +196,9 @@ See [`../docs/gmail-sorter-design.md`](../docs/gmail-sorter-design.md).
 npm test     # runs every unit and integration test via node:test
 ```
 
-66 tests cover the Gmail client, Ollama client, classification,
-pipeline orchestration (classify-inbox, apply-one, apply-all), the
-Follow-up label lifecycle, and the superstar probe. The tests mock
+Tests cover the Gmail client, Ollama client, classification,
+pipeline orchestration (classify-inbox, apply-one, apply-all), and the
+superstar probe. The tests mock
 `fetch` and `chrome.storage` via a lightweight shim — they don't
 require a real Gmail account, a real Ollama, or a browser.
 

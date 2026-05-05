@@ -179,34 +179,6 @@ export async function classifyInbox() {
   }
 }
 
-// ------------------------ Follow-up label (lazy) ------------------------
-
-const FOLLOWUP_LABEL_NAME = "Follow-up";
-
-// Returns the Gmail label id for our Follow-up label, creating it lazily
-// and caching the id in chrome.storage.sync so we don't pay the round-trip
-// on every apply.
-export async function ensureFollowUpLabel(token) {
-  const cached = await store.get("sync", store.KEYS.FOLLOWUP_LABEL_ID, null);
-  if (cached) return cached;
-
-  // First, check if the user (or a previous run) already has the label.
-  const labels = await gmail.listLabels(token);
-  const existing = labels.find((l) => l.name === FOLLOWUP_LABEL_NAME);
-  if (existing) {
-    await store.set("sync", store.KEYS.FOLLOWUP_LABEL_ID, existing.id);
-    return existing.id;
-  }
-
-  // Otherwise create it.
-  const created = await gmail.createLabel(token, {
-    name: FOLLOWUP_LABEL_NAME,
-    color: { backgroundColor: "#4a86e8", textColor: "#ffffff" },
-  });
-  await store.set("sync", store.KEYS.FOLLOWUP_LABEL_ID, created.id);
-  return created.id;
-}
-
 // ------------------------ Star variant labels (lazy) ------------------------
 //
 // Gmail's superstar IDs (^ss_sy, ^ss_sr, ^ss_cr) are not writable via the
@@ -223,7 +195,7 @@ const STAR_LABEL_SPECS = Object.freeze({
 
 // Returns the Gmail label id for a star-variant label, lazy-creating it
 // the first time it's needed. Cache lives at store.KEYS.STAR_LABEL_IDS as
-// { yellow, red, redBang } in chrome.storage.sync. Mirrors ensureFollowUpLabel.
+// { yellow, red, redBang } in chrome.storage.sync.
 export async function ensureStarLabel(token, variant) {
   const spec = STAR_LABEL_SPECS[variant];
   if (!spec) throw new Error(`unknown star variant: ${variant}`);
@@ -339,28 +311,12 @@ export async function applyOne(emailId, chosenAction) {
     return result;
   }
 
-  // Lazy-create the Follow-up label if this is our first Move action.
-  if (actionToApply === "Move: Follow-up" && diff.needsFollowUpLabel) {
-    try {
-      const labelId = await ensureFollowUpLabel(token);
-      diff = actionToLabelDiff(actionToApply, { followUpLabelId: labelId });
-    } catch (err) {
-      await store.putApplyError(emailId, `Could not create Follow-up label: ${err.message}`);
-      const result = { ok: false, error: { kind: "gmail", message: err.message } };
-      await store.appendDiag({
-        kind: "apply_one.done", emailId, ok: false, errorKind: result.error.kind,
-      });
-      return result;
-    }
-  }
-
   // Lazy-create the star-variant label if this is the first apply for that variant.
   if (diff.needsStarLabel) {
     try {
       const labelId = await ensureStarLabel(token, diff.needsStarLabel);
       diff = actionToLabelDiff(actionToApply, {
         starLabelIds: { ...starLabelIdsCache, [diff.needsStarLabel]: labelId },
-        followUpLabelId: undefined,
       });
     } catch (err) {
       await store.putApplyError(emailId, `Could not create star label: ${err.message}`);

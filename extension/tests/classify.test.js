@@ -120,15 +120,10 @@ describe("actionToLabelDiff", () => {
   test("Mark read: removes UNREAD only", () => {
     assert.deepEqual(actionToLabelDiff("Mark read"), { add: [], remove: ["UNREAD"] });
   });
-  test("Move: Follow-up with cached label id", () => {
-    const d = actionToLabelDiff("Move: Follow-up", { followUpLabelId: "Label_42" });
-    assert.deepEqual(d.add, ["Label_42"]);
-    assert.deepEqual(d.remove, ["INBOX"]);
-    assert.equal(d.needsFollowUpLabel, false);
-  });
-  test("Move: Follow-up without cached label flags needsFollowUpLabel", () => {
+  test("Move: Follow-up is now unmapped (regression guard)", () => {
     const d = actionToLabelDiff("Move: Follow-up");
-    assert.equal(d.needsFollowUpLabel, true);
+    assert.equal(d.noop, true);
+    assert.equal(d.unmapped, true);
   });
   test("Leave alone: noop", () => {
     const d = actionToLabelDiff("Leave alone");
